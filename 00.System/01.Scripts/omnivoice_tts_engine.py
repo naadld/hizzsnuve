@@ -341,7 +341,111 @@ def run_voiceover_pipeline(character_name, project_dir, target_part=0, ref_voice
         except Exception as se:
             print(f"⚠️ Sheet Link Update Error: {se}")
 
-    print(f"\n🎉 Voiceover Generation Completed! ({success_count}/{len(parts_to_run)} parts generated successfully)")
+def combine_all_audio_parts(character_name, project_dir, artifacts_dir=""):
+    """
+    Stage 3: Combines all 15 audio parts into combined_voiceover.wav with 5.0s silence pacing.
+    Uploads to Google Drive and updates Google Sheets.
+    """
+    media_dir = os.path.join(project_dir, "02.Media Generation")
+    audio_dir = os.path.join(media_dir, "audio")
+    os.makedirs(audio_dir, exist_ok=True)
+
+    print(f"\n--- HistorySnooze Stage 3: Combine All 15 Audio Parts for {character_name} ---")
+
+    # If artifacts_dir provided (downloaded from GH Actions artifacts), copy into audio_dir
+    if artifacts_dir and os.path.exists(artifacts_dir):
+        import shutil
+        for root, _, files in os.walk(artifacts_dir):
+            for f in files:
+                if f.startswith("Part_") and f.endswith(".wav"):
+                    src = os.path.join(root, f)
+                    dst = os.path.join(audio_dir, f)
+                    shutil.copy2(src, dst)
+                    print(f"  └─ Collected: {f}")
+
+    # Gather 15 audio parts
+    audio_files = []
+    for p in range(1, 16):
+        part_str = f"{p:02d}"
+        wav_path = os.path.join(audio_dir, f"Part_{part_str}_Voiceover.wav")
+        if not os.path.exists(wav_path):
+            matches = glob.glob(os.path.join(audio_dir, f"*Part_{part_str}*.wav"))
+            if matches:
+                wav_path = matches[0]
+        if os.path.exists(wav_path):
+            audio_files.append((p, wav_path))
+
+    print(f"Found {len(audio_files)}/15 Audio Parts for concatenation.")
+    if not audio_files:
+        print("[Error] No audio files found to combine.")
+        return False
+
+    # Create 5.0s silence wav
+    silence_5s_path = os.path.join(audio_dir, "silence_5s.wav")
+    subprocess.run([
+        "ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono",
+        "-t", "5", "-c:a", "pcm_s16le", silence_5s_path
+    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+
+    concat_txt_path = os.path.join(audio_dir, "concat_parts_list.txt")
+    with open(concat_txt_path, "w", encoding="utf-8") as f:
+        for idx, (_, path) in enumerate(audio_files):
+            f.write(f"file '{path}'\n")
+            if idx < len(audio_files) - 1 and os.path.exists(silence_5s_path):
+                f.write(f"file '{silence_5s_path}'\n")
+
+    combined_out_wav = os.path.join(audio_dir, "combined_voiceover.wav")
+    cmd = [
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+        "-i", concat_txt_path, "-c:a", "pcm_s16le", combined_out_wav
+    ]
+    subprocess.run(cmd, check=True)
+    print(f"🎉 Created Combined Master Audio: {combined_out_wav}")
+
+    # GDrive Upload & Sheet Update
+    try:
+        from gdrive_utils import get_gdrive_service, ensure_project_tree, upload_file
+        gdrive_service = get_gdrive_service()
+        if gdrive_service:
+            tree = ensure_project_tree(gdrive_service, character_name)
+            if tree.get("audio_id"):
+                # Upload all individual WAVs and combined WAV
+                upload_file(gdrive_service, combined_out_wav, parent_id=tree["audio_id"])
+                for _, path in audio_files:
+                    upload_file(gdrive_service, path, parent_id=tree["audio_id"])
+
+                audio_gdrive_url = f"https://drive.google.com/drive/u/0/folders/{tree['audio_id']}"
+                from format_gsheet_control_center import SPREADSHEET_ID
+                sheets_svc = build("sheets", "v4", credentials=gdrive_service._credentials)
+                res = sheets_svc.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range="Pipeline!A:K").execute()
+                rows = res.get("values", [])
+                row_idx = None
+                for idx, r in enumerate(rows):
+                    if len(r) > 1 and r[1].strip().lower() == character_name.strip().lower():
+                        row_idx = idx + 1
+                        break
+
+                if row_idx:
+                    sheets_svc.spreadsheets().values().update(
+                        spreadsheetId=SPREADSHEET_ID,
+                        range=f"Pipeline!H{row_idx}",
+                        valueInputOption="USER_ENTERED",
+                        body={"values": [[audio_gdrive_url]]}
+                    ).execute()
+
+                    img_val = rows[row_idx - 1][8] if len(rows[row_idx - 1]) > 8 else ""
+                    final_status = "Ready" if "https://" in img_val else "Voiceover"
+                    sheets_svc.spreadsheets().values().update(
+                        spreadsheetId=SPREADSHEET_ID,
+                        range=f"Pipeline!D{row_idx}",
+                        valueInputOption="USER_ENTERED",
+                        body={"values": [[final_status]]}
+                    ).execute()
+                    print(f"✅ Updated Sheet Pipeline Row {row_idx}: Status={final_status}, Audio Link={audio_gdrive_url}")
+    except Exception as ge:
+        print(f"⚠️ GDrive / Sheet Update Notice: {ge}")
+
+    return True
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OmniVoice TTS Engine for HistorySnooze")
@@ -349,7 +453,14 @@ if __name__ == "__main__":
     parser.add_argument("--project_dir", default="", help="Project directory path")
     parser.add_argument("--part", type=int, default=0, help="Specific part number (1-15) or 0 for all")
     parser.add_argument("--ref_voice", default="", help="Path to reference voice audio file")
+    parser.add_argument("--combine", action="store_true", help="Combine all 15 parts into combined_voiceover.wav")
+    parser.add_argument("--artifacts_dir", default="", help="Directory containing downloaded part artifacts")
     args = parser.parse_args()
 
     proj_dir = args.project_dir or f"01.Projects/{args.character}"
-    run_voiceover_pipeline(args.character, proj_dir, args.part, args.ref_voice)
+
+    if args.combine:
+        combine_all_audio_parts(args.character, proj_dir, args.artifacts_dir)
+    else:
+        run_voiceover_pipeline(args.character, proj_dir, args.part, args.ref_voice)
+

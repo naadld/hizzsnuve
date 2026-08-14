@@ -11,7 +11,36 @@ on:
         default: 'Marcus_Aurelius'
 
 jobs:
+  # STAGE 1: Ensure OmniVoice Model & Weights are Cached
+  setup_cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Cache HuggingFace & Pip Dependencies
+        id: omnivoice-cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/huggingface/hub
+            ~/.cache/pip
+          key: omnivoice-model-cache-v1
+
+      - name: Download & Preload OmniVoice Model if Cache Miss
+        if: steps.omnivoice-cache.outputs.cache-hit != 'true'
+        run: |
+          pip install torch torchaudio soundfile requests pydub git+https://github.com/k2-fsa/OmniVoice.git
+          python -c "from omnivoice import OmniVoice; OmniVoice.from_pretrained('k2-fsa/OmniVoice', device='cpu')"
+
+  # STAGE 2: 15 Parallel TTS Engines
   voiceover_matrix:
+    needs: setup_cache
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,19 +54,63 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install FFmpeg & PyTorch
+      - name: Restore OmniVoice & HuggingFace Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/huggingface/hub
+            ~/.cache/pip
+          key: omnivoice-model-cache-v1
+
+      - name: Install FFmpeg & Requirements
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
-          pip install torch torchaudio pydub requests soundfile
+          pip install torch torchaudio soundfile requests pydub git+https://github.com/k2-fsa/OmniVoice.git
 
       - name: Generate OmniVoice TTS Part ${{ matrix.part }}
         run: |
           CHARACTER="${{ github.event.inputs.character || github.event.client_payload.character }}"
-          echo "Generating TTS Voiceover for Part ${{ matrix.part }} of $CHARACTER..."
+          echo "🎙️ Generating TTS Voiceover for Part ${{ matrix.part }} of $CHARACTER..."
           python 00.System/01.Scripts/omnivoice_tts_engine.py --character "$CHARACTER" --part ${{ matrix.part }} --project_dir "01.Projects/$CHARACTER"
 
       - name: Upload Audio Artifact Part ${{ matrix.part }}
         uses: actions/upload-artifact@v3
         with:
           name: voiceover-audio-part-${{ matrix.part }}
-          path: 01.Projects/*/02.Media Generation/audio/Part_*.wav
+          path: 01.Projects/*/02.Media Generation/audio/Part_${{ matrix.part }}_*.wav
+          if-no-files-found: warn
+
+  # STAGE 3: Combine All 15 Parts into Combined Voiceover & Upload
+  combine_voiceover:
+    needs: voiceover_matrix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install FFmpeg & Requirements
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install google-api-python-client google-auth-oauthlib requests pydub
+
+      - name: Download All Part Audio Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: downloaded_audio/
+
+      - name: Combine 15 Parts with 5.0s Silence Pacing & Upload to GDrive
+        run: |
+          CHARACTER="${{ github.event.inputs.character || github.event.client_payload.character }}"
+          echo "🔗 Combining 15 Audio Parts for: $CHARACTER"
+          python 00.System/01.Scripts/omnivoice_tts_engine.py --character "$CHARACTER" --project_dir "01.Projects/$CHARACTER" --combine --artifacts_dir downloaded_audio
+
+      - name: Upload Combined Master Audio Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: combined-voiceover-master
+          path: 01.Projects/*/02.Media Generation/audio/combined_voiceover.wav
