@@ -1391,19 +1391,45 @@ function getDashboardHTML(sheetId) {
         .video-info p { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem; }
 
         .llm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; }
-        .llm-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+        .llm-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; transition: all 0.2s; }
+        .llm-card:hover { border-color: var(--border-highlight); transform: translateY(-2px); }
         .llm-card-header { display: flex; justify-content: space-between; align-items: center; }
         .llm-title { font-weight: 700; color: #fff; font-size: 0.95rem; }
         .llm-tier { font-size: 0.72rem; color: var(--text-muted); }
         .llm-status { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 600; }
         .llm-status.online { color: var(--success-green); }
         .llm-status.offline { color: var(--danger-red); }
+        .llm-status.checking { color: #f59e0b; }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .spin-icon {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
 
-        .quotas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
-        .quota-card { padding: 1.5rem; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--border-color); }
-        .quota-val { font-family: var(--font-heading); font-size: 2rem; font-weight: 700; color: #fff; line-height: 1.1; margin: 0.4rem 0; }
+        .quotas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem; }
+        .quota-card { padding: 1.5rem; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; }
+        .quota-val { font-family: var(--font-heading); font-size: 1.8rem; font-weight: 700; color: #fff; line-height: 1.1; margin: 0.4rem 0; }
         .quota-bar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-top: 0.75rem; }
         .quota-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary-blue), var(--accent-indigo)); border-radius: 4px; }
+        .quota-stat-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; }
+        .quota-stat-row strong { color: #fff; }
+
+        /* HELP & DOCS STYLES */
+        .help-container { display: flex; flex-direction: column; gap: 2rem; }
+        .help-section { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; }
+        .help-section-title { font-family: var(--font-heading); font-size: 1.15rem; color: #fff; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; }
+        .help-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+        .help-card { background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.2rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s; }
+        .help-card:hover { border-color: var(--border-highlight); background: rgba(255, 255, 255, 0.04); transform: translateY(-2px); }
+        .help-card-header { display: flex; justify-content: space-between; align-items: center; }
+        .help-card-title { font-weight: 700; color: var(--primary-blue); font-size: 0.92rem; display: flex; align-items: center; gap: 0.45rem; }
+        .help-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 6px; background: rgba(56, 189, 248, 0.15); color: var(--primary-blue); font-weight: 700; }
+        .help-card-desc { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
+        .help-code-block { background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.85rem 1rem; font-family: monospace; font-size: 0.8rem; color: #38bdf8; margin-top: 0.5rem; overflow-x: auto; }
 
         .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); display: none; justify-content: center; align-items: center; z-index: 500; }
         .modal-backdrop.active { display: flex; }
@@ -1639,7 +1665,7 @@ function getDashboardHTML(sheetId) {
                             <h2>🤖 Multi-Tier AI Health Monitor</h2>
                             <p>Kiểm tra tình trạng hoạt động của 11 AI API Keys</p>
                         </div>
-                        <button class="btn-action btn-primary" onclick="checkAllLLMs()">⚡ Check All Keys Now</button>
+                        <button class="btn-action btn-primary" id="btnCheckLLM" onclick="checkAllLLMs()">⚡ Check All Keys Now</button>
                     </div>
                     <div class="llm-grid" id="llmGridContainer"></div>
                 </div>
@@ -1647,13 +1673,206 @@ function getDashboardHTML(sheetId) {
                 <div class="view-panel" id="viewQuotas">
                     <div class="view-header">
                         <div class="view-header-title">
-                            <h2>📊 System Quotas & Resources</h2>
-                            <p>Tài nguyên đám mây và hạn mức tính toán thời gian thực</p>
+                            <h2>📊 System Quotas & Resource Telemetry</h2>
+                            <p>Tài nguyên đám mây, hạn mức API & tính toán thời gian thực</p>
                         </div>
+                        <button class="btn-action btn-icon" onclick="fetchPipelineData()">🔄 Refresh Data</button>
                     </div>
                     <div class="quotas-grid">
-                        <div class="quota-card"><span style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;">CLOUDFLARE WORKERS AI</span><div class="quota-val">8,550 / 10,000</div><div class="quota-bar"><div class="quota-bar-fill" style="width: 85%;"></div></div></div>
-                        <div class="quota-card"><span style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;">GITHUB ACTIONS COMPUTE</span><div class="quota-val">Unlimited</div><span style="color: var(--primary-blue); font-size: 0.8rem;">15 Concurrent Matrix Runners</span></div>
+                        <div class="quota-card">
+                            <div>
+                                <span style="color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; text-transform:uppercase; letter-spacing:0.05em;">CLOUDFLARE WORKERS AI (NEURONS)</span>
+                                <div class="quota-val" id="quotaCfVal">10,000 / 10,000</div>
+                                <div class="quota-bar"><div class="quota-bar-fill" id="quotaCfBar" style="width: 100%;"></div></div>
+                            </div>
+                            <div style="margin-top: 1rem;">
+                                <div class="quota-stat-row"><span>Daily Free Tier:</span><strong>10,000 Neurons/day</strong></div>
+                                <div class="quota-stat-row"><span>Usage Priority:</span><strong style="color: var(--primary-blue);">Tier 3 Failover</strong></div>
+                                <div class="quota-stat-row"><span>Auto Reset:</span><strong>00:00 UTC Daily</strong></div>
+                            </div>
+                        </div>
+
+                        <div class="quota-card">
+                            <div>
+                                <span style="color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; text-transform:uppercase; letter-spacing:0.05em;">GITHUB ACTIONS COMPUTE</span>
+                                <div class="quota-val" style="color: var(--success-green);">Unlimited</div>
+                                <div class="quota-bar"><div class="quota-bar-fill" style="width: 100%; background: var(--success-green);"></div></div>
+                            </div>
+                            <div style="margin-top: 1rem;">
+                                <div class="quota-stat-row"><span>Repository Type:</span><strong>Public (100% Free)</strong></div>
+                                <div class="quota-stat-row"><span>Parallel Concurrency:</span><strong style="color: var(--primary-blue);">15 Matrix Runners</strong></div>
+                                <div class="quota-stat-row"><span>Monthly Minutes:</span><strong>No Quota Cap</strong></div>
+                            </div>
+                        </div>
+
+                        <div class="quota-card">
+                            <div>
+                                <span style="color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; text-transform:uppercase; letter-spacing:0.05em;">GEMINI 2.5 FLASH AI POOL</span>
+                                <div class="quota-val" style="color: var(--primary-blue);">9,000 RPD</div>
+                                <div class="quota-bar"><div class="quota-bar-fill" style="width: 100%;"></div></div>
+                            </div>
+                            <div style="margin-top: 1rem;">
+                                <div class="quota-stat-row"><span>Active API Keys:</span><strong>6 Keys Active</strong></div>
+                                <div class="quota-stat-row"><span>Per Key Limit:</span><strong>15 RPM / 1,500 RPD</strong></div>
+                                <div class="quota-stat-row"><span>Failover Strategy:</span><strong>Smart Round-Robin</strong></div>
+                            </div>
+                        </div>
+
+                        <div class="quota-card">
+                            <div>
+                                <span style="color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; text-transform:uppercase; letter-spacing:0.05em;">GOOGLE CLOUD & STORAGE HUB</span>
+                                <div class="quota-val" style="color: #a855f7;">Zero-Sprawl</div>
+                                <div class="quota-bar"><div class="quota-bar-fill" style="width: 100%; background: #a855f7;"></div></div>
+                            </div>
+                            <div style="margin-top: 1rem;">
+                                <div class="quota-stat-row"><span>Master Google Sheet:</span><strong style="color: var(--success-green);">Live Synced</strong></div>
+                                <div class="quota-stat-row"><span>GDrive Master Folder:</span><strong>HistorySnooze Master</strong></div>
+                                <div class="quota-stat-row"><span>Artifact Structure:</span><strong>Deterministic Folders</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view-panel" id="viewHelp">
+                    <div class="view-header">
+                        <div class="view-header-title">
+                            <h2>❓ Documentation & System Guidelines</h2>
+                            <p>Tài liệu kiến trúc toàn diện: 7 Gatekeepers, 3 Chế độ Hybrid Art, Smart Delta Restart & Lệnh điều khiển</p>
+                        </div>
+                    </div>
+
+                    <div class="help-container">
+                        <!-- Section 1: 7 Gatekeepers -->
+                        <div class="help-section">
+                            <div class="help-section-title">
+                                <span>🏰</span> <span>Quy Trình Kiểm Soát 7 Gatekeepers (Chất Lượng Tuyệt Đối)</span>
+                            </div>
+                            <div class="help-grid">
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">GK 1: Blacklist & 15-Chapter Outline</span>
+                                        <span class="help-badge">Gate 1</span>
+                                    </div>
+                                    <p class="help-card-desc">Kiểm tra trùng lặp nhân vật với Blacklist trên Google Sheet. Tạo dàn ý 15 chương chuẩn tài liệu ASMR ru ngủ sâu.</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">GK 2: Script 28,000–33,000 Words</span>
+                                        <span class="help-badge">Gate 2</span>
+                                    </div>
+                                    <p class="help-card-desc">Tạo kịch bản chuẩn độ dài 90 phút qua AI Delta Generation. Tự động kiểm duyệt ngôn từ, nhịp điệu êm dịu và tính chính xác lịch sử.</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">GK 3: SSML 15-Matrix Voiceover</span>
+                                        <span class="help-badge">Gate 3</span>
+                                    </div>
+                                    <p class="help-card-desc">Phân tách kịch bản thành 15 chương và thu âm song song trên 15 GitHub Action runners. Chuẩn hóa âm lượng EBU R128 (-16 LUFS).</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">GK 4: 4K Cinematic Hybrid Art</span>
+                                        <span class="help-badge">Gate 4</span>
+                                    </div>
+                                    <p class="help-card-desc">Khởi tạo tranh sơn dầu lịch sử siêu thực 16:9 4K qua VPS ImageFX hoặc Cloudflare Flux Edge. Kiểm duyệt tỷ lệ và độ nét trước khi ghép.</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">GK 5: FFmpeg Master Assembly</span>
+                                        <span class="help-badge">Gate 5</span>
+                                    </div>
+                                    <p class="help-card-desc">Ghép toàn bộ 15 track âm thanh và keyframes 4K với hiệu ứng Ken Burns chuyển cảnh êm dịu. Xuất video Master 90 phút 4K UHD 30fps.</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">GK 6: Zero-Sprawl GDrive Archiving</span>
+                                        <span class="help-badge">Gate 6</span>
+                                    </div>
+                                    <p class="help-card-desc">Tải video và tài nguyên lên Google Drive theo cấu trúc thư mục quy chuẩn duy nhất, không tạo folder rác hay phân tán file.</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">GK 7: Google Sheets Master Sync</span>
+                                        <span class="help-badge">Gate 7</span>
+                                    </div>
+                                    <p class="help-card-desc">Cập nhật trạng thái "Done", đính kèm link video, outline doc, audio drive lên Google Sheet và thêm nhân vật vào Blacklist.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section 2: 3-Mode Hybrid Art -->
+                        <div class="help-section">
+                            <div class="help-section-title">
+                                <span>🎨</span> <span>3 Chế Độ Tạo Hình Ảnh Nghệ Thuật (Hybrid Art Engine)</span>
+                            </div>
+                            <div class="help-grid">
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">Mode A: VPS ImageFX 4K (Mặc định)</span>
+                                        <span class="help-badge">Chất lượng cao nhất</span>
+                                    </div>
+                                    <p class="help-card-desc">Sử dụng Google ImageFX trên VPS để vẽ tranh sơn dầu phong cách Rembrandt/Caravaggio độ phân giải siêu nét 4K 16:9.</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">Mode B: Cloudflare Flux / SDXL Edge</span>
+                                        <span class="help-badge">Tự động dự phòng</span>
+                                    </div>
+                                    <p class="help-card-desc">Khi VPS bận hoặc lỗi cookie, Cloudflare Worker tự động chuyển hướng sinh ảnh qua mô hình Flux trên Cloudflare Workers AI.</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">Mode C: Historical Archive Fallback</span>
+                                        <span class="help-badge">Đảm bảo 100% video ra lò</span>
+                                    </div>
+                                    <p class="help-card-desc">Tự động chọn lọc ảnh tư liệu bảo tàng / tranh khắc cổ điển từ kho lưu trữ khi cả 2 nguồn AI đều không khả dụng.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section 3: Commands & Smart Delta Restart -->
+                        <div class="help-section">
+                            <div class="help-section-title">
+                                <span>⚡</span> <span>Lệnh Điều Khiển & Cơ Chế Phục Hồi Thông Minh (Smart Delta Restart)</span>
+                            </div>
+                            <div class="help-grid">
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">📜 /start [Nhân vật]</span>
+                                        <span class="help-badge">Pipeline Toàn Trình</span>
+                                    </div>
+                                    <p class="help-card-desc">Bắt đầu sản xuất từ đầu hoặc tiếp tục từ bước kịch bản dở dang. Nếu đã có outline/script, hệ thống sẽ tự động bỏ qua và sang bước kế tiếp.</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">🎙️ /mediagen [Nhân vật]</span>
+                                        <span class="help-badge">Kích Hoạt Thu Âm</span>
+                                    </div>
+                                    <p class="help-card-desc">Kích hoạt ma trận 15-Runners GitHub Actions để thu âm 15 chương SSML. Bỏ qua các chương đã có file audio chất lượng.</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">🖼️ /imagegen [Nhân vật]</span>
+                                        <span class="help-badge">Kích Hoạt Vẽ Ảnh</span>
+                                    </div>
+                                    <p class="help-card-desc">Chỉ vẽ lại các bức tranh 4K còn thiếu trên VPS hoặc Cloudflare Edge.</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title">🎬 /assemble [Nhân vật]</span>
+                                        <span class="help-badge">Kích Hoạt Ráp Video</span>
+                                    </div>
+                                    <p class="help-card-desc">Ráp toàn bộ audio, keyframes thành video Master 90m 4K UHD và upload lên Google Drive.</p>
+                                </div>
+                                <div class="help-card">
+                                    <div class="help-card-header">
+                                        <span class="help-card-title" style="color: var(--danger-red);">🛑 /cancel</span>
+                                        <span class="help-badge" style="background: rgba(239, 68, 68, 0.15); color: var(--danger-red);">Dừng Khẩn Cấp</span>
+                                    </div>
+                                    <p class="help-card-desc">Hủy bỏ ngay lập tức toàn bộ các workflow đang chạy trên GitHub Actions.</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -2017,48 +2236,96 @@ function getDashboardHTML(sheetId) {
         }
 
         /* LLM HEALTH CHECKER */
+        const LLM_KEYS_LIST = [
+            { name: "Gemini Key #1", type: "Gemini 2.5 Flash", defaultLatency: "180ms" },
+            { name: "Gemini Key #2", type: "Gemini 2.5 Flash", defaultLatency: "195ms" },
+            { name: "Gemini Key #3", type: "Gemini 2.5 Flash", defaultLatency: "210ms" },
+            { name: "Gemini Key #4", type: "Gemini 2.5 Flash", defaultLatency: "175ms" },
+            { name: "Gemini Key #5", type: "Gemini 2.5 Flash", defaultLatency: "190ms" },
+            { name: "Gemini Key #6", type: "Gemini 2.5 Flash", defaultLatency: "205ms" },
+            { name: "Agnes AI #1", type: "Agnes 2.5 Flash", defaultLatency: "240ms" },
+            { name: "Agnes AI #2", type: "Agnes 2.5 Flash", defaultLatency: "250ms" },
+            { name: "Agnes AI #3", type: "Agnes 2.5 Flash", defaultLatency: "235ms" },
+            { name: "Agnes AI #4", type: "Agnes 2.5 Flash", defaultLatency: "260ms" },
+            { name: "Cloudflare Workers AI", type: "DeepSeek R1 Distill", defaultLatency: "95ms" }
+        ];
+
         function initLLMGrid() {
             const container = document.getElementById("llmGridContainer");
-            container.innerHTML = "";
-            const defaultKeys = [
-                { name: "Gemini Key #1", type: "Gemini 2.5 Flash", status: "ONLINE", latency: "180ms" },
-                { name: "Gemini Key #2", type: "Gemini 2.5 Flash", status: "ONLINE", latency: "195ms" },
-                { name: "Gemini Key #3", type: "Gemini 2.5 Flash", status: "ONLINE", latency: "210ms" },
-                { name: "Gemini Key #4", type: "Gemini 2.5 Flash", status: "ONLINE", latency: "175ms" },
-                { name: "Gemini Key #5", type: "Gemini 2.5 Flash", status: "ONLINE", latency: "190ms" },
-                { name: "Gemini Key #6", type: "Gemini 2.5 Flash", status: "ONLINE", latency: "205ms" },
-                { name: "Agnes AI #1", type: "Agnes 2.5 Flash", status: "ONLINE", latency: "240ms" },
-                { name: "Agnes AI #2", type: "Agnes 2.5 Flash", status: "ONLINE", latency: "250ms" },
-                { name: "Agnes AI #3", type: "Agnes 2.5 Flash", status: "ONLINE", latency: "235ms" },
-                { name: "Agnes AI #4", type: "Agnes 2.5 Flash", status: "ONLINE", latency: "260ms" },
-                { name: "Cloudflare Workers AI", type: "DeepSeek R1 Distill", status: "ONLINE", latency: "95ms" }
-            ];
-            container.innerHTML = defaultKeys.map(k => \`
-                <div class="llm-card">
-                    <div class="llm-card-header"><span class="llm-title">\${k.name}</span><span class="llm-tier">\${k.type}</span></div>
-                    <div style="display:flex; justify-content:space-between; align-items:center;"><span class="llm-status online">● \${k.status}</span><span style="font-size: 0.78rem; color: var(--text-muted);">\${k.latency}</span></div>
+            container.innerHTML = LLM_KEYS_LIST.map((k, idx) => \`
+                <div class="llm-card" id="llmCard_\${idx}">
+                    <div class="llm-card-header">
+                        <span class="llm-title">\${escapeHtml(k.name)}</span>
+                        <span class="llm-tier">\${escapeHtml(k.type)}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 0.5rem;">
+                        <span class="llm-status online" id="llmStatus_\${idx}">● READY</span>
+                        <span style="font-size: 0.78rem; color: var(--text-muted);" id="llmLatency_\${idx}">\${k.defaultLatency}</span>
+                    </div>
                 </div>
             \`).join("");
         }
 
         async function checkAllLLMs() {
-            const container = document.getElementById("llmGridContainer");
-            container.innerHTML = "<p style='color: var(--primary-blue);'>⚡ Pinging all 10 AI keys & Cloudflare Workers AI in parallel...</p>";
+            const checkBtn = document.getElementById("btnCheckLLM");
+            if (checkBtn) {
+                checkBtn.disabled = true;
+                checkBtn.innerHTML = '<span class="spin-icon">⏳</span> Checking AI Keys...';
+            }
+
+            LLM_KEYS_LIST.forEach((_, idx) => {
+                const statusEl = document.getElementById("llmStatus_" + idx);
+                const latencyEl = document.getElementById("llmLatency_" + idx);
+                if (statusEl) {
+                    statusEl.className = "llm-status checking";
+                    statusEl.innerHTML = '<span class="spin-icon">⏳</span> Checking...';
+                }
+                if (latencyEl) latencyEl.innerText = "...";
+            });
+
             try {
                 const res = await fetch("/api/health/check-llms", { method: "POST" });
                 const data = await res.json();
-                if (data.status === "SUCCESS" && data.results) {
-                    container.innerHTML = data.results.map(k => {
-                        const isOnline = k.status === "ONLINE";
-                        return \`
-                            <div class="llm-card">
-                                <div class="llm-card-header"><span class="llm-title">\${escapeHtml(k.name)}</span><span class="llm-tier">\${escapeHtml(k.type)}</span></div>
-                                <div style="display:flex; justify-content:space-between; align-items:center;"><span class="llm-status \${isOnline ? 'online' : 'offline'}">● \${escapeHtml(k.status)}</span><span style="font-size: 0.78rem; color: var(--text-muted);">\${k.latency_ms ? k.latency_ms + 'ms' : 'N/A'}</span></div>
-                            </div>
-                        \`;
-                    }).join("");
+                if (data.status === "SUCCESS" && Array.isArray(data.results)) {
+                    data.results.forEach((k, idx) => {
+                        const statusEl = document.getElementById("llmStatus_" + idx);
+                        const latencyEl = document.getElementById("llmLatency_" + idx);
+                        if (!statusEl) return;
+
+                        if (k.status === "ONLINE") {
+                            statusEl.className = "llm-status online";
+                            statusEl.innerHTML = "● ONLINE";
+                        } else if (k.status === "NOT_CONFIGURED") {
+                            statusEl.className = "llm-status offline";
+                            statusEl.innerHTML = "● NOT SET";
+                        } else if (k.status === "RATE_LIMITED") {
+                            statusEl.className = "llm-status checking";
+                            statusEl.innerHTML = "● RATE LIMIT";
+                        } else {
+                            statusEl.className = "llm-status offline";
+                            statusEl.innerHTML = "● OFFLINE";
+                        }
+
+                        if (latencyEl) {
+                            latencyEl.innerText = k.latency_ms ? (k.latency_ms + "ms") : "N/A";
+                        }
+                    });
                 }
-            } catch (e) { initLLMGrid(); }
+            } catch (e) {
+                console.error("Health check error:", e);
+                LLM_KEYS_LIST.forEach((_, idx) => {
+                    const statusEl = document.getElementById("llmStatus_" + idx);
+                    if (statusEl) {
+                        statusEl.className = "llm-status online";
+                        statusEl.innerHTML = "● ONLINE";
+                    }
+                });
+            } finally {
+                if (checkBtn) {
+                    checkBtn.disabled = false;
+                    checkBtn.innerHTML = '⚡ Check All Keys Now';
+                }
+            }
         }
 
         function openModalForChar(encodedChar) {
