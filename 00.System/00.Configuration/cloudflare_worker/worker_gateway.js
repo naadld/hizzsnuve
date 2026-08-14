@@ -728,7 +728,7 @@ function getDashboardHTML(sheetId) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HistorySnooze Control Center Dashboard</title>
+    <title>History Snooze</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -926,7 +926,7 @@ function getDashboardHTML(sheetId) {
     <div class="login-overlay" id="loginOverlay">
         <div class="login-box">
             <div class="login-icon">🌙</div>
-            <h2 class="login-title">HistorySnooze Control Center</h2>
+            <h2 class="login-title">History Snooze</h2>
             <p class="login-sub">Nhập mật khẩu quản trị để truy cập hệ thống</p>
             
             <div class="login-form">
@@ -951,7 +951,7 @@ function getDashboardHTML(sheetId) {
             <div class="brand">
                 <div class="logo-icon">🌙</div>
                 <div class="brand-info">
-                    <h1>HistorySnooze Control Center</h1>
+                    <h1>History Snooze</h1>
                     <p class="subtitle">100% Online Global ASMR History Production System</p>
                 </div>
             </div>
