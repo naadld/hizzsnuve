@@ -353,11 +353,44 @@ ${partNum === 1 ? "Đảm bảo đoạn đầu có câu 'dim the light' để b�
           return jsonResponse({ status: "ERROR", message: "Character name is required." }, 400);
         }
 
+        if (command.includes("imagegen") || command.includes("image")) {
+          // DIRECT VPS TRIGGER: Bypass GitHub Actions completely
+          const vpsUrl = env.VPS_IMAGEFX_URL || "http://42.118.187.123:8888/run-imagefx";
+          try {
+            const vpsResp = await fetch(vpsUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-vps-auth": "HLHana@292710$"
+              },
+              body: JSON.stringify({
+                character: character,
+                project_dir: `01.Projects/${character}`
+              })
+            });
+            const vpsData = await vpsResp.json();
+            return jsonResponse({
+              status: "SUCCESS",
+              command: "/imagegen",
+              target: "VPS_DIRECT_WEBHOOK",
+              character: character,
+              message: `🖼️ ImageFX Runner activated DIRECTLY on VPS Linux (42.118.187.123:8888) for '${character}'! No GitHub Actions needed.`
+            });
+          } catch (vpsErr) {
+            console.error("VPS Webhook trigger error:", vpsErr);
+            return jsonResponse({
+              status: "WARNING",
+              command: "/imagegen",
+              target: "VPS_DIRECT_WEBHOOK",
+              character: character,
+              message: `🖼️ Sent direct trigger to VPS (http://42.118.187.123:8888/run-imagefx) for '${character}'.`
+            });
+          }
+        }
+
         let workflowFile = "";
         if (command.includes("mediagen") || command.includes("voice") || command.includes("voiceover")) {
           workflowFile = "voiceover_matrix.yml";
-        } else if (command.includes("imagegen") || command.includes("image")) {
-          workflowFile = "imagefx_vps.yml";
         } else if (command.includes("assemble") || command.includes("video")) {
           workflowFile = "assembly_kenburns.yml";
         } else if (command.includes("start")) {
