@@ -106,9 +106,12 @@ Ngay sau khi hoàn thành 15 tập kịch bản & beats, hệ thống tự độ
 * **Nền tảng**: VPS Linux Playwright CDP (port 9222) kích hoạt qua `imagefx_vps.yml`.
 * **Làm gì**: Điều khiển Google ImageFX sinh 45-60 bức ảnh illuminated manuscript tràn viền 16:9 4K đưa vào `02.Media Generation/keyframes/`.
 
-### 🎬 Bước 5: Ghép Master Video MP4 (`/assemble`)
+### 🎬 Bước 5: Ghép Master Video MP4 Bằng Phương Pháp Part-by-Part (`/assemble`)
 * **Nền tảng**: GitHub Actions (`assembly_kenburns.yml`) / FFmpeg.
-* **Làm gì**: Nối 15 audio parts, áp dụng hiệu ứng chuyển động Ken Burns pan/zoom cho ảnh keyframes, render Master Video MP4 ➔ Upload lên `03.Final Production/` và đổi trạng thái Sheet sang `Done`.
+* **Quy trình thực thi (Method 1: Siêu nhẹ RAM, Chống OOM)**:
+  1. **Dựng 15 Video Part độc lập**: Lấy audio `Part_XX_Voiceover.wav` + 3-5 ảnh tương ứng của Part đó ➔ Render `Part_XX_Video.mp4` (mỗi Part dài 5-7 phút, RAM chỉ tốn ~100MB).
+  2. **Ghép siêu tốc thành Master Video**: Nối 15 video parts lại với nhau kèm **khoảng lặng 5.0 giây** (`silence_5s.mp4`) bằng lệnh `-c copy` chỉ mất 10 giây ➔ Xuất ra `Master_<Character>_Documentary.mp4`.
+  3. **Kiểm tra GK7 & Hoàn tất**: Tự động tải Master MP4 lên Google Drive `03.Final Production/`, gắn link cột J và đổi trạng thái Sheet thành `Done`.
 
 ---
 
