@@ -441,6 +441,17 @@
         .status-done { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid #10b981; }
         .status-stopped { background: rgba(239, 68, 68, 0.15); color: var(--danger-red); border: 1px solid rgba(239, 68, 68, 0.3); }
 
+        .clickable-row { cursor: pointer; transition: all 0.2s; }
+        .clickable-row:hover td { background: rgba(56, 189, 248, 0.08) !important; }
+
+        .pipeline-steps-grid { display: flex; flex-direction: column; gap: 1rem; }
+        .pipeline-step-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 14px; padding: 1.25rem 1.5rem; transition: all 0.2s; }
+        .pipeline-step-card:hover { border-color: var(--border-highlight); background: rgba(255, 255, 255, 0.05); }
+        .pipeline-step-card.completed { border-left: 4px solid var(--success-green); }
+        .pipeline-step-card.active { border-left: 4px solid var(--primary-blue); background: rgba(56, 189, 248, 0.05); }
+        .pipeline-step-card.pending { border-left: 4px solid rgba(255, 255, 255, 0.1); opacity: 0.7; }
+        .step-criteria-box { background: rgba(0, 0, 0, 0.35); border-radius: 8px; padding: 0.75rem 1rem; margin-top: 0.75rem; font-size: 0.82rem; color: var(--text-secondary); border: 1px solid rgba(255, 255, 255, 0.05); }
+
         .step-progress-row { display: flex; align-items: center; gap: 6px; }
         .step-node { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color); color: var(--text-muted); }
         .step-node.completed { background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: var(--success-green); }
@@ -701,19 +712,65 @@
                 </div>
 
                 <div class="view-panel" id="viewPipeline">
-                    <div class="view-header">
-                        <div class="view-header-title">
-                            <h2>🚀 Production Pipeline</h2>
-                            <p>Theo dõi tiến độ các dự án đang chạy (Scripting, Voiceover, Keyframes, Assembly)</p>
+                    <!-- PIPELINE LIST SUB-VIEW -->
+                    <div id="pipelineListContainer">
+                        <div class="view-header">
+                            <div class="view-header-title">
+                                <h2>🚀 Active Production Pipeline</h2>
+                                <p>Danh sách các dự án đang sản xuất — Bấm vào bất kỳ dòng nào để xem chi tiết tiến trình 7 Gatekeepers & điều khiển</p>
+                            </div>
+                            <button class="btn-action btn-icon" onclick="fetchPipelineData()">🔄 Refresh</button>
+                        </div>
+                        <div class="glass-card" style="padding: 0; overflow: hidden;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr><th>ID</th><th>Historical Figure</th><th>YouTube Title</th><th>Status</th><th>Current Stage</th><th>Actions</th></tr>
+                                </thead>
+                                <tbody id="pipelineTbody"><tr><td colspan="6" style="text-align:center; padding: 2rem;">Loading Active Pipeline...</td></tr></tbody>
+                            </table>
                         </div>
                     </div>
-                    <div class="glass-card" style="padding: 0; overflow: hidden;">
-                        <table class="data-table">
-                            <thead>
-                                <tr><th>ID</th><th>Historical Figure</th><th>Status</th><th>Step Progress</th><th>GDrive Links</th><th>Actions</th></tr>
-                            </thead>
-                            <tbody id="pipelineTbody"><tr><td colspan="6" style="text-align:center; padding: 2rem;">Loading Active Pipeline...</td></tr></tbody>
-                        </table>
+
+                    <!-- PIPELINE DETAIL SUB-VIEW (Title & Figure on Top-Left, 3 Action Buttons on Top-Right, Steps with Criteria & Status below) -->
+                    <div id="pipelineDetailContainer" style="display: none;">
+                        <div style="margin-bottom: 1.5rem;">
+                            <button class="btn-action btn-icon" onclick="closePipelineDetail()" style="padding: 6px 14px; font-size: 0.85rem; margin-bottom: 1rem;">← Quay lại danh sách Pipeline</button>
+                            
+                            <div class="glass-card" style="padding: 1.75rem 2rem; border-color: var(--border-highlight); background: linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8));">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap;">
+                                    <!-- Left / Top: Title & Historical Figure -->
+                                    <div style="flex: 1; min-width: 320px;">
+                                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;" id="detailCharId">#ID</span>
+                                            <span class="status-pill status-scripting" id="detailStatusBadge">SCRIPTING</span>
+                                        </div>
+                                        <h2 style="color: #fff; font-size: 1.5rem; font-family: var(--font-heading); line-height: 1.35; margin-bottom: 0.6rem;" id="detailTitleText">YouTube Video Title</h2>
+                                        <div style="display: flex; align-items: center; gap: 1.25rem; font-size: 0.88rem; color: var(--primary-blue); flex-wrap: wrap;">
+                                            <span>👑 Nhân vật: <strong id="detailCharName" style="color: #fff;">Historical Figure</strong></span>
+                                            <span id="detailGdriveLinkContainer"></span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Top Right: 3 Action Buttons (Restart, Stop, Delete) + Custom Trigger -->
+                                    <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                                        <button class="btn-action btn-primary" id="detailBtnRestart" style="padding: 9px 16px; font-size: 0.88rem; font-weight: 700;">🔄 Restart</button>
+                                        <button class="btn-action btn-icon" id="detailBtnStop" style="padding: 9px 16px; font-size: 0.88rem; font-weight: 700; color: #f59e0b; border-color: rgba(245, 158, 11, 0.4);">🛑 Stop</button>
+                                        <button class="btn-action btn-danger" id="detailBtnDelete" style="padding: 9px 16px; font-size: 0.88rem; font-weight: 700;">🗑️ Delete</button>
+                                        <button class="btn-action btn-icon" id="detailBtnMore" style="padding: 9px 14px; font-size: 0.88rem;">⚙️ More</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BELOW: 6 PRODUCTION STEPS WITH TARGET CRITERIA & REALTIME STATUS -->
+                        <div style="margin-bottom: 1.25rem;">
+                            <h3 style="color: #fff; font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 0.25rem;">🎯 Tiến Trình 7 Gatekeepers & Chỉ Tiêu Từng Bước</h3>
+                            <p style="color: var(--text-secondary); font-size: 0.85rem;">Các mốc kiểm duyệt chất lượng đạt chuẩn kịch bản ngủ ngon 90 phút & video 4K UHD</p>
+                        </div>
+
+                        <div class="pipeline-steps-grid" id="pipelineStepsDetailGrid">
+                            <!-- Dynamic Steps will be rendered here -->
+                        </div>
                     </div>
                 </div>
 

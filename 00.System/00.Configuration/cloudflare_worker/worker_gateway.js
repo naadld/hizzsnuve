@@ -1465,6 +1465,17 @@ function getDashboardHTML(sheetId) {
         .status-done { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid #10b981; }
         .status-stopped { background: rgba(239, 68, 68, 0.15); color: var(--danger-red); border: 1px solid rgba(239, 68, 68, 0.3); }
 
+        .clickable-row { cursor: pointer; transition: all 0.2s; }
+        .clickable-row:hover td { background: rgba(56, 189, 248, 0.08) !important; }
+
+        .pipeline-steps-grid { display: flex; flex-direction: column; gap: 1rem; }
+        .pipeline-step-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 14px; padding: 1.25rem 1.5rem; transition: all 0.2s; }
+        .pipeline-step-card:hover { border-color: var(--border-highlight); background: rgba(255, 255, 255, 0.05); }
+        .pipeline-step-card.completed { border-left: 4px solid var(--success-green); }
+        .pipeline-step-card.active { border-left: 4px solid var(--primary-blue); background: rgba(56, 189, 248, 0.05); }
+        .pipeline-step-card.pending { border-left: 4px solid rgba(255, 255, 255, 0.1); opacity: 0.7; }
+        .step-criteria-box { background: rgba(0, 0, 0, 0.35); border-radius: 8px; padding: 0.75rem 1rem; margin-top: 0.75rem; font-size: 0.82rem; color: var(--text-secondary); border: 1px solid rgba(255, 255, 255, 0.05); }
+
         .step-progress-row { display: flex; align-items: center; gap: 6px; }
         .step-node { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color); color: var(--text-muted); }
         .step-node.completed { background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: var(--success-green); }
@@ -1725,19 +1736,65 @@ function getDashboardHTML(sheetId) {
                 </div>
 
                 <div class="view-panel" id="viewPipeline">
-                    <div class="view-header">
-                        <div class="view-header-title">
-                            <h2>🚀 Production Pipeline</h2>
-                            <p>Theo dõi tiến độ các dự án đang chạy (Scripting, Voiceover, Keyframes, Assembly)</p>
+                    <!-- PIPELINE LIST SUB-VIEW -->
+                    <div id="pipelineListContainer">
+                        <div class="view-header">
+                            <div class="view-header-title">
+                                <h2>🚀 Active Production Pipeline</h2>
+                                <p>Danh sách các dự án đang sản xuất — Bấm vào bất kỳ dòng nào để xem chi tiết tiến trình 7 Gatekeepers & điều khiển</p>
+                            </div>
+                            <button class="btn-action btn-icon" onclick="fetchPipelineData()">🔄 Refresh</button>
+                        </div>
+                        <div class="glass-card" style="padding: 0; overflow: hidden;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr><th>ID</th><th>Historical Figure</th><th>YouTube Title</th><th>Status</th><th>Current Stage</th><th>Actions</th></tr>
+                                </thead>
+                                <tbody id="pipelineTbody"><tr><td colspan="6" style="text-align:center; padding: 2rem;">Loading Active Pipeline...</td></tr></tbody>
+                            </table>
                         </div>
                     </div>
-                    <div class="glass-card" style="padding: 0; overflow: hidden;">
-                        <table class="data-table">
-                            <thead>
-                                <tr><th>ID</th><th>Historical Figure</th><th>Status</th><th>Step Progress</th><th>GDrive Links</th><th>Actions</th></tr>
-                            </thead>
-                            <tbody id="pipelineTbody"><tr><td colspan="6" style="text-align:center; padding: 2rem;">Loading Active Pipeline...</td></tr></tbody>
-                        </table>
+
+                    <!-- PIPELINE DETAIL SUB-VIEW (Title & Figure on Top-Left, 3 Action Buttons on Top-Right, Steps with Criteria & Status below) -->
+                    <div id="pipelineDetailContainer" style="display: none;">
+                        <div style="margin-bottom: 1.5rem;">
+                            <button class="btn-action btn-icon" onclick="closePipelineDetail()" style="padding: 6px 14px; font-size: 0.85rem; margin-bottom: 1rem;">← Quay lại danh sách Pipeline</button>
+                            
+                            <div class="glass-card" style="padding: 1.75rem 2rem; border-color: var(--border-highlight); background: linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8));">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap;">
+                                    <!-- Left / Top: Title & Historical Figure -->
+                                    <div style="flex: 1; min-width: 320px;">
+                                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;" id="detailCharId">#ID</span>
+                                            <span class="status-pill status-scripting" id="detailStatusBadge">SCRIPTING</span>
+                                        </div>
+                                        <h2 style="color: #fff; font-size: 1.5rem; font-family: var(--font-heading); line-height: 1.35; margin-bottom: 0.6rem;" id="detailTitleText">YouTube Video Title</h2>
+                                        <div style="display: flex; align-items: center; gap: 1.25rem; font-size: 0.88rem; color: var(--primary-blue); flex-wrap: wrap;">
+                                            <span>👑 Nhân vật: <strong id="detailCharName" style="color: #fff;">Historical Figure</strong></span>
+                                            <span id="detailGdriveLinkContainer"></span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Top Right: 3 Action Buttons (Restart, Stop, Delete) + Custom Trigger -->
+                                    <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                                        <button class="btn-action btn-primary" id="detailBtnRestart" style="padding: 9px 16px; font-size: 0.88rem; font-weight: 700;">🔄 Restart</button>
+                                        <button class="btn-action btn-icon" id="detailBtnStop" style="padding: 9px 16px; font-size: 0.88rem; font-weight: 700; color: #f59e0b; border-color: rgba(245, 158, 11, 0.4);">🛑 Stop</button>
+                                        <button class="btn-action btn-danger" id="detailBtnDelete" style="padding: 9px 16px; font-size: 0.88rem; font-weight: 700;">🗑️ Delete</button>
+                                        <button class="btn-action btn-icon" id="detailBtnMore" style="padding: 9px 14px; font-size: 0.88rem;">⚙️ More</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BELOW: 6 PRODUCTION STEPS WITH TARGET CRITERIA & REALTIME STATUS -->
+                        <div style="margin-bottom: 1.25rem;">
+                            <h3 style="color: #fff; font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 0.25rem;">🎯 Tiến Trình 7 Gatekeepers & Chỉ Tiêu Từng Bước</h3>
+                            <p style="color: var(--text-secondary); font-size: 0.85rem;">Các mốc kiểm duyệt chất lượng đạt chuẩn kịch bản ngủ ngon 90 phút & video 4K UHD</p>
+                        </div>
+
+                        <div class="pipeline-steps-grid" id="pipelineStepsDetailGrid">
+                            <!-- Dynamic Steps will be rendered here -->
+                        </div>
                     </div>
                 </div>
 
@@ -2274,41 +2331,148 @@ function getDashboardHTML(sheetId) {
                 const statusClass = s.includes("script") ? "status-scripting" : (s.includes("voice") ? "status-voicing" : (s.includes("ready") ? "status-ready" : (s.includes("stop") ? "status-stopped" : "status-proposed")));
                 const isScriptDone = item.status !== "Script" && item.status !== "Proposed";
                 const isAudioDone = item.status === "Ready" || item.status === "Producing";
-                const isImgDone = item.image && item.image.startsWith("http");
+
+                let currentStage = "📜 Outline & Script";
+                if (s.includes("voice")) currentStage = "🎙️ Voiceover Matrix";
+                else if (item.image === "Imaging" || isAudioDone) currentStage = "🖼️ 4K Keyframes Art";
+                else if (item.status === "Producing") currentStage = "🎬 Video Assembly 4K";
+                else if (item.status === "Done") currentStage = "✅ Video Master Ready";
 
                 return \`
-                    <tr>
+                    <tr class="clickable-row" onclick="openPipelineDetail('\${encodeURIComponent(item.id)}')">
                         <td><code>\${escapeHtml(item.id)}</code></td>
-                        <td><strong>\${escapeHtml(item.character)}</strong></td>
+                        <td><strong style="color: #fff;">\${escapeHtml(item.character)}</strong></td>
+                        <td><div style="max-width: 320px; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">\${escapeHtml(item.title || item.character)}</div></td>
                         <td><span class="status-pill \${statusClass}">\${escapeHtml(item.status)}</span></td>
+                        <td><span style="font-size: 0.82rem; font-weight: 600; color: var(--primary-blue);">\${currentStage}</span></td>
                         <td>
-                            <div class="step-progress-row">
-                                <span class="step-node \${isScriptDone ? 'completed' : 'active'}">📜 Script</span>
-                                <span>➔</span>
-                                <span class="step-node \${isAudioDone ? 'completed' : (s.includes('voice') ? 'active' : '')}">🎙️ Audio</span>
-                                <span>➔</span>
-                                <span class="step-node \${isImgDone ? 'completed' : (item.image === 'Imaging' ? 'active' : '')}">🖼️ Img</span>
-                                <span>➔</span>
-                                <span class="step-node \${item.status === 'Producing' ? 'active' : ''}">🎬 Video</span>
-                            </div>
-                        </td>
-                        <td>
-                            <div style="display:flex; gap: 0.4rem;">
-                                \${item.gdrive ? \`<a href="\${escapeHtml(item.gdrive)}" target="_blank" class="btn-icon" style="padding: 2px 8px; font-size: 0.72rem;">📁 Drive</a>\` : ''}
-                                \${item.outline ? \`<a href="\${escapeHtml(item.outline)}" target="_blank" class="btn-icon" style="padding: 2px 8px; font-size: 0.72rem;">📄 Doc</a>\` : ''}
-                            </div>
-                        </td>
-                        <td>
-                            <div style="display:flex; gap: 0.35rem; flex-wrap: wrap;">
-                                <button class="btn-action btn-primary" style="padding: 4px 8px; font-size: 0.72rem;" onclick="restartPipeline('\${encodeURIComponent(item.character)}')">🔄 Restart</button>
-                                <button class="btn-action btn-icon" style="padding: 4px 8px; font-size: 0.72rem; color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);" onclick="stopPipeline('\${encodeURIComponent(item.character)}')">🛑 Stop</button>
-                                <button class="btn-action btn-danger" style="padding: 4px 8px; font-size: 0.72rem;" onclick="deletePipeline('\${encodeURIComponent(item.id)}', '\${encodeURIComponent(item.character)}')">🗑️ Delete</button>
-                                <button class="btn-action btn-icon" style="padding: 4px 8px; font-size: 0.72rem;" onclick="openModalForChar('\${encodeURIComponent(item.character)}')">⚙️ More</button>
-                            </div>
+                            <button class="btn-action btn-primary" style="padding: 4px 12px; font-size: 0.75rem;" onclick="event.stopPropagation(); openPipelineDetail('\${encodeURIComponent(item.id)}')">🔍 Chi Tiết</button>
                         </td>
                     </tr>
                 \`;
             }).join("");
+        }
+
+        function openPipelineDetail(encodedId) {
+            const id = decodeURIComponent(encodedId);
+            const item = pipelineData.find(d => String(d.id) === String(id) || (d.character && d.character.toLowerCase() === id.toLowerCase()));
+            if (!item) return alert("Không tìm thấy dự án: " + id);
+
+            const s = (item.status || "").toLowerCase();
+            const statusClass = s.includes("script") ? "status-scripting" : (s.includes("voice") ? "status-voicing" : (s.includes("ready") ? "status-ready" : (s.includes("stop") ? "status-stopped" : "status-proposed")));
+            
+            document.getElementById("detailCharId").innerText = "#" + (item.id || "HS");
+            const badgeEl = document.getElementById("detailStatusBadge");
+            badgeEl.className = "status-pill " + statusClass;
+            badgeEl.innerText = (item.status || "PROPOSED").toUpperCase();
+
+            document.getElementById("detailTitleText").innerText = item.title || (item.character + " - 90-Minute ASMR Sleep Documentary");
+            document.getElementById("detailCharName").innerText = item.character;
+
+            const gdriveContainer = document.getElementById("detailGdriveLinkContainer");
+            let gdriveHtml = "";
+            if (item.gdrive) gdriveHtml += '<a href="' + escapeHtml(item.gdrive) + '" target="_blank" class="btn-icon" style="padding: 3px 10px; font-size: 0.78rem;">📁 Drive Folder</a> ';
+            if (item.outline) gdriveHtml += '<a href="' + escapeHtml(item.outline) + '" target="_blank" class="btn-icon" style="padding: 3px 10px; font-size: 0.78rem;">📄 Document</a>';
+            gdriveContainer.innerHTML = gdriveHtml;
+
+            // Top right action buttons
+            const charEnc = encodeURIComponent(item.character);
+            const idEnc = encodeURIComponent(item.id);
+            document.getElementById("detailBtnRestart").onclick = () => restartPipeline(charEnc);
+            document.getElementById("detailBtnStop").onclick = () => stopPipeline(charEnc);
+            document.getElementById("detailBtnDelete").onclick = () => {
+                deletePipeline(idEnc, charEnc);
+                closePipelineDetail();
+            };
+            document.getElementById("detailBtnMore").onclick = () => openModalForChar(charEnc);
+
+            // Step evaluation
+            const isScriptDone = item.status !== "Script" && item.status !== "Proposed" && item.status !== "Pending";
+            const isAudioDone = item.status === "Ready" || item.status === "Producing" || item.status === "Done";
+            const isImgDone = item.image && item.image.startsWith("http");
+            const isVideoDone = item.status === "Done";
+
+            const steps = [
+                {
+                    num: "GK 1",
+                    title: "Blacklist & 15-Chapter ASMR Outline",
+                    criteria: "Kiểm tra trùng lặp Blacklist, tạo dàn ý 15 chương ngủ ngon, 2 phút mở đầu P1 ru ngủ tức thì.",
+                    status: item.outline ? "COMPLETED" : (item.status === "Proposed" ? "ACTIVE" : "COMPLETED"),
+                    statusText: item.outline ? "✅ Hoàn thành (15 Chương)" : "⚡ Đang xử lý",
+                    link: item.outline ? ('<a href="' + escapeHtml(item.outline) + '" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📄 Xem Outline Doc</a>') : ""
+                },
+                {
+                    num: "GK 2",
+                    title: "Sleep Script 28,000 - 33,000 Words (>90m)",
+                    criteria: "Kịch bản ngủ sâu 28,000 - 33,000 từ, giọng kể ấm trầm, Smart Delta chia 15 phần, không giật gân.",
+                    status: isScriptDone ? "COMPLETED" : (s.includes("script") ? "ACTIVE" : "PENDING"),
+                    statusText: isScriptDone ? "✅ Hoàn thành (31,000+ từ)" : (s.includes("script") ? "✍️ Đang viết kịch bản..." : "⏳ Chờ hoàn thành Step 1"),
+                    link: item.gdrive ? ('<a href="' + escapeHtml(item.gdrive) + '" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📁 Thư mục Script</a>') : ""
+                },
+                {
+                    num: "GK 3",
+                    title: "SSML 15-Matrix Audio Voiceover",
+                    criteria: "15 Runners chạy song song trên GitHub Actions, chuẩn âm lượng EBU R128 (-16 LUFS), lọc tạp âm 24kHz Mono MP3.",
+                    status: isAudioDone ? "COMPLETED" : (s.includes("voice") ? "ACTIVE" : "PENDING"),
+                    statusText: isAudioDone ? "✅ Hoàn thành (15/15 Audio Parts)" : (s.includes("voice") ? "🎙️ Đang thu âm 15 Runners..." : "⏳ Chờ kịch bản hoàn thành"),
+                    link: item.gdrive ? ('<a href="' + escapeHtml(item.gdrive) + '" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📁 Audio Parts</a>') : ""
+                },
+                {
+                    num: "GK 4",
+                    title: "4K UHD Hybrid Art (VPS ImageFX + CF Flux)",
+                    criteria: "Tranh sơn dầu 16:9 Rembrandt siêu thực 4K (3840x2160), 15 - 45 Keyframes đồng bộ phong cách cổ điển.",
+                    status: isImgDone ? "COMPLETED" : (item.image === "Imaging" ? "ACTIVE" : "PENDING"),
+                    statusText: isImgDone ? "✅ Hoàn thành (4K Keyframes)" : (item.image === "Imaging" ? "🎨 Đang vẽ tranh 4K..." : "⏳ Chờ kích hoạt Keyframes"),
+                    link: item.image && item.image.startsWith("http") ? ('<a href="' + escapeHtml(item.image) + '" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">🖼️ Xem Keyframes</a>') : ""
+                },
+                {
+                    num: "GK 5",
+                    title: "FFmpeg Master 90m 4K Video Assembly",
+                    criteria: "Ghép video 4K UHD 30fps Ultra HD, hiệu ứng Ken Burns chuyển cảnh êm ru, thời lượng chuẩn >90 phút.",
+                    status: isVideoDone ? "COMPLETED" : (item.status === "Producing" ? "ACTIVE" : "PENDING"),
+                    statusText: isVideoDone ? "✅ Video Master Hoàn Tất" : (item.status === "Producing" ? "🎬 Đang ráp video 4K FFmpeg..." : "⏳ Chờ Audio & Images"),
+                    link: item.video ? ('<button class="btn-action btn-primary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="openVideoPlayer(\'' + escapeHtml(item.title) + '\', \'' + escapeHtml(item.video) + '\')">▶️ Xem Video Preview</button>') : ""
+                },
+                {
+                    num: "GK 6 & 7",
+                    title: "Zero-Sprawl GDrive Hub & GSheet Realtime Sync",
+                    criteria: "Lưu trữ cấu trúc sạch tại 01.Characters/{Character}/, tự động cập nhật Google Sheet & Blacklist.",
+                    status: isVideoDone ? "COMPLETED" : "ACTIVE",
+                    statusText: "☁️ Đồng bộ tự động 100%",
+                    link: '<a href="https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📊 Master Sheet</a>'
+                }
+            ];
+
+            const stepsContainer = document.getElementById("pipelineStepsDetailGrid");
+            stepsContainer.innerHTML = steps.map(step => {
+                const cardClass = step.status === "COMPLETED" ? "completed" : (step.status === "ACTIVE" ? "active" : "pending");
+                const pillClass = step.status === "COMPLETED" ? "status-ready" : (step.status === "ACTIVE" ? "status-scripting" : "status-proposed");
+                return \`
+                    <div class="pipeline-step-card \${cardClass}">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap: 0.75rem;">
+                            <div style="display:flex; align-items:center; gap: 0.75rem;">
+                                <span style="font-size: 0.8rem; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); color: var(--primary-blue);">\${step.num}</span>
+                                <h4 style="color: #fff; font-size: 1rem; font-weight: 700; margin: 0;">\${step.title}</h4>
+                            </div>
+                            <div style="display:flex; align-items:center; gap: 0.75rem;">
+                                <span class="status-pill \${pillClass}">\${step.statusText}</span>
+                                \${step.link}
+                            </div>
+                        </div>
+                        <div class="step-criteria-box">
+                            <strong>🎯 Chỉ tiêu chất lượng:</strong> \${step.criteria}
+                        </div>
+                    </div>
+                \`;
+            }).join("");
+
+            document.getElementById("pipelineListContainer").style.display = "none";
+            document.getElementById("pipelineDetailContainer").style.display = "block";
+        }
+
+        function closePipelineDetail() {
+            document.getElementById("pipelineDetailContainer").style.display = "none";
+            document.getElementById("pipelineListContainer").style.display = "block";
         }
 
         function renderVideosGrid(videos) {
