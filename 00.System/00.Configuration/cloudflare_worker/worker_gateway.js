@@ -1967,6 +1967,67 @@ function getDashboardHTML(sheetId) {
         </div>
     </div>
 
+    <!-- Modal Edit Title -->
+    <div class="modal-backdrop" id="modalEditTitleBackdrop">
+        <div class="glass-card" style="width: 100%; max-width: 520px; padding: 2rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.25rem;">
+                <h3 style="color: #fff; font-size: 1.2rem; font-family: var(--font-heading);">✏️ Edit YouTube Title</h3>
+                <button class="btn-action btn-icon" onclick="closeEditModal()" style="font-size: 1rem;">✕</button>
+            </div>
+            <div style="margin-bottom: 1.25rem;">
+                <label style="display:block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.4rem;">Character Name</label>
+                <input type="text" id="editCharName" readonly style="width: 100%; padding: 0.8rem 1rem; border-radius: 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.9rem;" />
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display:block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.4rem;">YouTube Title</label>
+                <textarea id="editTitleInput" rows="3" style="width: 100%; padding: 0.8rem 1rem; border-radius: 10px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: #fff; font-size: 0.9rem; resize: vertical; font-family: var(--font-sans);"></textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap: 0.75rem;">
+                <button class="btn-action btn-icon" onclick="closeEditModal()">Cancel</button>
+                <button class="btn-action btn-primary" onclick="saveEditedTitle()">💾 Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Trigger Gateway Command -->
+    <div class="modal-backdrop" id="modalBackdrop">
+        <div class="glass-card" style="width: 100%; max-width: 480px; padding: 2rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.25rem;">
+                <h3 style="color: #fff; font-size: 1.2rem; font-family: var(--font-heading);">⚡ Run Gateway Command</h3>
+                <button class="btn-action btn-icon" onclick="closeModal()" style="font-size: 1rem;">✕</button>
+            </div>
+            <div style="margin-bottom: 1.25rem;">
+                <label style="display:block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.4rem;">Target Character</label>
+                <input type="text" id="modalInputChar" style="width: 100%; padding: 0.8rem 1rem; border-radius: 10px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: #fff; font-size: 0.9rem;" />
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display:block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.4rem;">Command</label>
+                <select id="modalSelectCommand" style="width: 100%; padding: 0.8rem 1rem; border-radius: 10px; background: #181926; border: 1px solid var(--border-color); color: #fff; font-size: 0.9rem;">
+                    <option value="/start">📜 /start (Full Production Pipeline)</option>
+                    <option value="/mediagen">🎙️ /mediagen (15-Matrix Audio Voiceover)</option>
+                    <option value="/imagegen">🖼️ /imagegen (4K Hybrid Art Generator)</option>
+                    <option value="/assemble">🎬 /assemble (FFmpeg Master 90m Video)</option>
+                    <option value="/cancel">🛑 /cancel (Emergency Workflow Abort)</option>
+                </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap: 0.75rem;">
+                <button class="btn-action btn-icon" onclick="closeModal()">Cancel</button>
+                <button class="btn-action btn-primary" onclick="submitGatewayCommand()">🚀 Dispatch Command</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Video Player -->
+    <div class="modal-backdrop" id="modalVideoBackdrop">
+        <div class="glass-card" style="width: 90vw; max-width: 960px; height: 80vh; max-height: 640px; padding: 1.5rem; display: flex; flex-direction: column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
+                <h3 id="videoModalTitle" style="color: #fff; font-size: 1.1rem; font-family: var(--font-heading);">🎬 Video Preview</h3>
+                <button class="btn-action btn-icon" onclick="closeVideoModal()" style="font-size: 1.1rem;">✕</button>
+            </div>
+            <div id="videoPlayerContainer" style="flex: 1; border-radius: 12px; overflow: hidden; background: #000; display:flex; justify-content:center; align-items:center;"></div>
+        </div>
+    </div>
+
     <script>
         const VALID_PASSWORDS = ["HLHana@292710$", "hlhana@292710$", "292710", "historysnooze"];
         const MASTER_PASS = "HLHana@292710$";
@@ -2301,13 +2362,22 @@ function getDashboardHTML(sheetId) {
 
         function openEditModal(encodedId) {
             const id = decodeURIComponent(encodedId);
-            editingItem = pipelineData.find(d => d.id === id);
-            if (!editingItem) return;
-            document.getElementById("editCharName").value = editingItem.character;
-            document.getElementById("editTitleInput").value = editingItem.title;
-            document.getElementById("modalEditTitleBackdrop").classList.add("active");
+            editingItem = pipelineData.find(d => String(d.id) === String(id) || (d.character && d.character.toLowerCase() === id.toLowerCase()));
+            if (!editingItem) {
+                alert("Cannot find item to edit: " + id);
+                return;
+            }
+            const charEl = document.getElementById("editCharName");
+            const titleEl = document.getElementById("editTitleInput");
+            const modalEl = document.getElementById("modalEditTitleBackdrop");
+            if (charEl) charEl.value = editingItem.character || "";
+            if (titleEl) titleEl.value = editingItem.title || "";
+            if (modalEl) modalEl.classList.add("active");
         }
-        function closeEditModal() { document.getElementById("modalEditTitleBackdrop").classList.remove("active"); }
+        function closeEditModal() { 
+            const modalEl = document.getElementById("modalEditTitleBackdrop");
+            if (modalEl) modalEl.classList.remove("active"); 
+        }
 
         function saveEditedTitle() {
             const newTitle = document.getElementById("editTitleInput").value.trim();
