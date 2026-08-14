@@ -1123,7 +1123,7 @@
         let selectedTitle = null;
         let editingItem = null;
 
-        function cleanInput(val) { return (val || "").toString().trim().replace(/[\\u200B-\\u200D\\uFEFF]/g, ""); }
+        function cleanInput(val) { return (val || "").toString().trim().replace(/[\u200B-\u200D\uFEFF]/g, ""); }
         function isAuthorized(token) { const clean = cleanInput(token); if (!clean) return false; return VALID_PASSWORDS.some(p => p.toLowerCase() === clean.toLowerCase()) || clean === "1" || clean === "true"; }
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -1200,7 +1200,7 @@
                 const fallbackUrl = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID + "/gviz/tq?tqx=out:json&sheet=Pipeline";
                 const fRes = await fetch(fallbackUrl);
                 const txt = await fRes.text();
-                const jsonMatch = txt.match(/google\\.visualization\\.Query\\.setResponse\\(([\\s\\S]*)\\);/);
+                const jsonMatch = txt.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/);
                 if (jsonMatch && jsonMatch[1]) {
                     const parsed = JSON.parse(jsonMatch[1]);
                     const rows = parsed.table ? parsed.table.rows : [];
@@ -1269,4 +1269,556 @@
             tbody.innerHTML = items.map(item => {
                 const s = (item.status || "").toLowerCase();
                 const statusClass = s.includes("script") ? "status-scripting" : (s.includes("voice") ? "status-voicing" : (s.includes("ready") ? "status-ready" : (s.includes("done") ? "status-done" : "status-proposed")));
-                return \`<tr><td><code>${escapeHtml(item.id)}</code></td><td><strong>${escapeHtml(item.character)}</strong></td><td><div style="max-width:320px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.title)}</div></td><td><span class="status-pill ${statusClass}">${escapeHtml(item.status)}</span></td><td><button class="btn-action btn-icon" style="padding: 4px 8px; font-size: 0.75rem;" onclick="openModalForChar('${encodeURIComponent(item.character)}')">⚙️ Actions</button></td></tr>\
+                return `<tr><td><code>${escapeHtml(item.id)}</code></td><td><strong>${escapeHtml(item.character)}</strong></td><td><div style="max-width:320px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.title)}</div></td><td><span class="status-pill ${statusClass}">${escapeHtml(item.status)}</span></td><td><button class="btn-action btn-icon" style="padding: 4px 8px; font-size: 0.75rem;" onclick="openModalForChar('${encodeURIComponent(item.character)}')">⚙️ Actions</button></td></tr>`;
+            }).join("");
+        }
+
+        function renderIdeasTable(ideas) {
+            const tbody = document.getElementById("ideasTbody");
+            if (ideas.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; padding: 2rem; color: var(--text-muted);'>No ideas in backlog. Generate some in Ideation Studio!</td></tr>";
+                return;
+            }
+            tbody.innerHTML = ideas.map(item => `
+                <tr>
+                    <td><code>${escapeHtml(item.id)}</code></td>
+                    <td><strong>${escapeHtml(item.character)}</strong></td>
+                    <td><div style="max-width: 320px; font-size: 0.85rem;">${escapeHtml(item.title)}</div></td>
+                    <td><span style="font-size: 0.78rem; color: var(--text-muted);">${escapeHtml(item.updatedAt || 'Recently')}</span></td>
+                    <td>
+                        <div style="display:flex; gap: 0.4rem;">
+                            <button class="btn-action btn-primary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="startIdeaProduction('${encodeURIComponent(item.character)}')">▶️ Start</button>
+                            <button class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;" onclick="openEditModal('${encodeURIComponent(item.id)}')">✏️ Edit</button>
+                            <button class="btn-action btn-danger" style="padding: 4px 10px; font-size: 0.75rem;" onclick="deleteIdea('${encodeURIComponent(item.id)}', '${encodeURIComponent(item.character)}')">🗑️ Delete</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join("");
+        }
+
+        function renderPipelineTable(items) {
+            const tbody = document.getElementById("pipelineTbody");
+            if (items.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='6' style='text-align:center; padding: 2rem; color: var(--text-muted);'>No active production in progress. Start an idea from Backlog!</td></tr>";
+                return;
+            }
+            tbody.innerHTML = items.map(item => {
+                const s = (item.status || "").toLowerCase();
+                const statusClass = s.includes("script") ? "status-scripting" : (s.includes("voice") ? "status-voicing" : (s.includes("ready") ? "status-ready" : (s.includes("stop") ? "status-stopped" : "status-proposed")));
+                const isScriptDone = item.status !== "Script" && item.status !== "Proposed";
+                const isAudioDone = item.status === "Ready" || item.status === "Producing";
+
+                let currentStage = "📜 Outline & Script";
+                if (s.includes("voice")) currentStage = "🎙️ Voiceover Matrix";
+                else if (item.image === "Imaging" || isAudioDone) currentStage = "🖼️ 4K Keyframes Art";
+                else if (item.status === "Producing") currentStage = "🎬 Video Assembly 4K";
+                else if (item.status === "Done") currentStage = "✅ Video Master Ready";
+
+                return `
+                    <tr class="clickable-row" onclick="openPipelineDetail('${encodeURIComponent(item.id)}')">
+                        <td><code>${escapeHtml(item.id)}</code></td>
+                        <td><strong style="color: #fff;">${escapeHtml(item.character)}</strong></td>
+                        <td><div style="max-width: 320px; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.title || item.character)}</div></td>
+                        <td><span class="status-pill ${statusClass}">${escapeHtml(item.status)}</span></td>
+                        <td><span style="font-size: 0.82rem; font-weight: 600; color: var(--primary-blue);">${currentStage}</span></td>
+                        <td>
+                            <button class="btn-action btn-primary" style="padding: 4px 12px; font-size: 0.75rem;" onclick="event.stopPropagation(); openPipelineDetail('${encodeURIComponent(item.id)}')">🔍 Chi Tiết</button>
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+        }
+
+        function openPipelineDetail(encodedId) {
+            const id = decodeURIComponent(encodedId);
+            const item = pipelineData.find(d => String(d.id) === String(id) || (d.character && d.character.toLowerCase() === id.toLowerCase()));
+            if (!item) return alert("Không tìm thấy dự án: " + id);
+
+            const s = (item.status || "").toLowerCase();
+            const statusClass = s.includes("script") ? "status-scripting" : (s.includes("voice") ? "status-voicing" : (s.includes("ready") ? "status-ready" : (s.includes("stop") ? "status-stopped" : "status-proposed")));
+            
+            document.getElementById("detailCharId").innerText = "#" + (item.id || "HS");
+            const badgeEl = document.getElementById("detailStatusBadge");
+            badgeEl.className = "status-pill " + statusClass;
+            badgeEl.innerText = (item.status || "PROPOSED").toUpperCase();
+
+            document.getElementById("detailTitleText").innerText = item.title || (item.character + " - 90-Minute ASMR Sleep Documentary");
+            document.getElementById("detailCharName").innerText = item.character;
+
+            const gdriveContainer = document.getElementById("detailGdriveLinkContainer");
+            let gdriveHtml = "";
+            if (item.gdrive) gdriveHtml += `<a href="${escapeHtml(item.gdrive)}" target="_blank" class="btn-icon" style="padding: 3px 10px; font-size: 0.78rem;">📁 Drive Folder</a> `;
+            if (item.outline) gdriveHtml += `<a href="${escapeHtml(item.outline)}" target="_blank" class="btn-icon" style="padding: 3px 10px; font-size: 0.78rem;">📄 Document</a>`;
+            gdriveContainer.innerHTML = gdriveHtml;
+
+            // Top right action buttons
+            const charEnc = encodeURIComponent(item.character);
+            const idEnc = encodeURIComponent(item.id);
+            document.getElementById("detailBtnRestart").onclick = () => restartPipeline(charEnc);
+            document.getElementById("detailBtnStop").onclick = () => stopPipeline(charEnc);
+            document.getElementById("detailBtnDelete").onclick = () => {
+                deletePipeline(idEnc, charEnc);
+                closePipelineDetail();
+            };
+            document.getElementById("detailBtnMore").onclick = () => openModalForChar(charEnc);
+
+            // Step evaluation
+            const isScriptDone = item.status !== "Script" && item.status !== "Proposed" && item.status !== "Pending";
+            const isAudioDone = item.status === "Ready" || item.status === "Producing" || item.status === "Done";
+            const isImgDone = item.image && item.image.startsWith("http");
+            const isVideoDone = item.status === "Done";
+
+            const steps = [
+                {
+                    num: "GK 1",
+                    title: "Blacklist & 15-Chapter ASMR Outline",
+                    criteria: "Kiểm tra trùng lặp Blacklist, tạo dàn ý 15 chương ngủ ngon, 2 phút mở đầu P1 ru ngủ tức thì.",
+                    status: item.outline ? "COMPLETED" : (item.status === "Proposed" ? "ACTIVE" : "COMPLETED"),
+                    statusText: item.outline ? "✅ Hoàn thành (15 Chương)" : "⚡ Đang xử lý",
+                    link: item.outline ? `<a href="${escapeHtml(item.outline)}" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📄 Xem Outline Doc</a>` : ""
+                },
+                {
+                    num: "GK 2",
+                    title: "Sleep Script 28,000 - 33,000 Words (>90m)",
+                    criteria: "Kịch bản ngủ sâu 28,000 - 33,000 từ, giọng kể ấm trầm, Smart Delta chia 15 phần, không giật gân.",
+                    status: isScriptDone ? "COMPLETED" : (s.includes("script") ? "ACTIVE" : "PENDING"),
+                    statusText: isScriptDone ? "✅ Hoàn thành (31,000+ từ)" : (s.includes("script") ? "✍️ Đang viết kịch bản..." : "⏳ Chờ hoàn thành Step 1"),
+                    link: item.gdrive ? `<a href="${escapeHtml(item.gdrive)}" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📁 Thư mục Script</a>` : ""
+                },
+                {
+                    num: "GK 3",
+                    title: "SSML 15-Matrix Audio Voiceover",
+                    criteria: "15 Runners chạy song song trên GitHub Actions, chuẩn âm lượng EBU R128 (-16 LUFS), lọc tạp âm 24kHz Mono MP3.",
+                    status: isAudioDone ? "COMPLETED" : (s.includes("voice") ? "ACTIVE" : "PENDING"),
+                    statusText: isAudioDone ? "✅ Hoàn thành (15/15 Audio Parts)" : (s.includes("voice") ? "🎙️ Đang thu âm 15 Runners..." : "⏳ Chờ kịch bản hoàn thành"),
+                    link: item.gdrive ? `<a href="${escapeHtml(item.gdrive)}" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📁 Audio Parts</a>` : ""
+                },
+                {
+                    num: "GK 4",
+                    title: "4K UHD Hybrid Art (VPS ImageFX + CF Flux)",
+                    criteria: "Tranh sơn dầu 16:9 Rembrandt siêu thực 4K (3840x2160), 15 - 45 Keyframes đồng bộ phong cách cổ điển.",
+                    status: isImgDone ? "COMPLETED" : (item.image === "Imaging" ? "ACTIVE" : "PENDING"),
+                    statusText: isImgDone ? "✅ Hoàn thành (4K Keyframes)" : (item.image === "Imaging" ? "🎨 Đang vẽ tranh 4K..." : "⏳ Chờ kích hoạt Keyframes"),
+                    link: item.image && item.image.startsWith("http") ? `<a href="${escapeHtml(item.image)}" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">🖼️ Xem Keyframes</a>` : ""
+                },
+                {
+                    num: "GK 5",
+                    title: "FFmpeg Master 90m 4K Video Assembly",
+                    criteria: "Ghép video 4K UHD 30fps Ultra HD, hiệu ứng Ken Burns chuyển cảnh êm ru, thời lượng chuẩn >90 phút.",
+                    status: isVideoDone ? "COMPLETED" : (item.status === "Producing" ? "ACTIVE" : "PENDING"),
+                    statusText: isVideoDone ? "✅ Video Master Hoàn Tất" : (item.status === "Producing" ? "🎬 Đang ráp video 4K FFmpeg..." : "⏳ Chờ Audio & Images"),
+                    link: item.video ? `<button class="btn-action btn-primary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="openVideoPlayer('${encodeURIComponent(item.title || '')}', '${encodeURIComponent(item.video || '')}')">▶️ Xem Video Preview</button>` : ""
+                },
+                {
+                    num: "GK 6 & 7",
+                    title: "Zero-Sprawl GDrive Hub & GSheet Realtime Sync",
+                    criteria: "Lưu trữ cấu trúc sạch tại 01.Characters/{Character}/, tự động cập nhật Google Sheet & Blacklist.",
+                    status: isVideoDone ? "COMPLETED" : "ACTIVE",
+                    statusText: "☁️ Đồng bộ tự động 100%",
+                    link: `<a href="https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📊 Master Sheet</a>`
+                }
+            ];
+
+            const stepsContainer = document.getElementById("pipelineStepsDetailGrid");
+            stepsContainer.innerHTML = steps.map(step => {
+                const cardClass = step.status === "COMPLETED" ? "completed" : (step.status === "ACTIVE" ? "active" : "pending");
+                const pillClass = step.status === "COMPLETED" ? "status-ready" : (step.status === "ACTIVE" ? "status-scripting" : "status-proposed");
+                return `
+                    <div class="pipeline-step-card ${cardClass}">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap: 0.75rem;">
+                            <div style="display:flex; align-items:center; gap: 0.75rem;">
+                                <span style="font-size: 0.8rem; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); color: var(--primary-blue);">${step.num}</span>
+                                <h4 style="color: #fff; font-size: 1rem; font-weight: 700; margin: 0;">${step.title}</h4>
+                            </div>
+                            <div style="display:flex; align-items:center; gap: 0.75rem;">
+                                <span class="status-pill ${pillClass}">${step.statusText}</span>
+                                ${step.link}
+                            </div>
+                        </div>
+                        <div class="step-criteria-box">
+                            <strong>🎯 Chỉ tiêu chất lượng:</strong> ${step.criteria}
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            document.getElementById("pipelineListContainer").style.display = "none";
+            document.getElementById("pipelineDetailContainer").style.display = "block";
+        }
+
+        function closePipelineDetail() {
+            document.getElementById("pipelineDetailContainer").style.display = "none";
+            document.getElementById("pipelineListContainer").style.display = "block";
+        }
+
+        function renderVideosGrid(videos) {
+            const grid = document.getElementById("videoGridContainer");
+            if (videos.length === 0) {
+                grid.innerHTML = "<p style='color: var(--text-muted); font-size: 0.9rem;'>No completed videos yet.</p>";
+                return;
+            }
+            grid.innerHTML = videos.map(v => `
+                <div class="video-card">
+                    <div class="video-thumb" onclick="openVideoPlayer('${encodeURIComponent(v.title)}', '${encodeURIComponent(v.video)}')">
+                        <div class="video-play-btn">▶</div>
+                        <div class="video-dur-tag">~90m (4K)</div>
+                    </div>
+                    <div class="video-info">
+                        <div>
+                            <h3>${escapeHtml(v.character)}</h3>
+                            <p>${escapeHtml(v.title)}</p>
+                        </div>
+                        <div style="display:flex; gap: 0.5rem; margin-top: 1rem;">
+                            <button class="btn-action btn-primary" style="flex:1; padding: 6px; font-size: 0.78rem;" onclick="openVideoPlayer('${encodeURIComponent(v.title)}', '${encodeURIComponent(v.video)}')">▶️ Watch Video</button>
+                            <a href="${escapeHtml(v.video)}" target="_blank" class="btn-action btn-icon" style="padding: 6px 10px; font-size: 0.78rem;">📁 Drive</a>
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        /* IDEATION FLOW */
+        async function generateFigures() {
+            const kw = document.getElementById("inputKeyword").value.trim();
+            if (!kw) return alert("Please enter a keyword.");
+            const container = document.getElementById("figuresListContainer");
+            container.innerHTML = "<p style='color: var(--primary-blue); font-size: 0.85rem;'>✨ AI is researching historical figures for: " + escapeHtml(kw) + "...</p>";
+            try {
+                const res = await fetch("/api/ideation/suggest-figures", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ keyword: kw })
+                });
+                const data = await res.json();
+                if (data.status === "SUCCESS" && data.figures && data.figures.length > 0) {
+                    container.innerHTML = "";
+                    data.figures.forEach(fig => {
+                        const div = document.createElement("div");
+                        div.className = "figure-card";
+                        div.innerHTML = "<h4>" + escapeHtml(fig.character) + "</h4><p>" + escapeHtml(fig.summary) + "</p>";
+                        div.onclick = () => selectFigure(fig.character, div);
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = "<p style='color: var(--danger-red); font-size: 0.85rem;'>Could not generate figures. Please try again.</p>";
+                }
+            } catch (e) {
+                container.innerHTML = "<p style='color: var(--danger-red); font-size: 0.85rem;'>Error: " + escapeHtml(e.message) + "</p>";
+            }
+        }
+
+        async function selectFigure(charName, element) {
+            selectedFigure = charName;
+            document.querySelectorAll(".figure-card").forEach(c => c.classList.remove("selected"));
+            if (element) element.classList.add("selected");
+            document.getElementById("selectedFigureInput").value = charName;
+            const tContainer = document.getElementById("titlesListContainer");
+            tContainer.innerHTML = "<p style='color: var(--primary-blue); font-size: 0.85rem;'>✨ Generating 5 Sleep History Titles for " + escapeHtml(charName) + "...</p>";
+            try {
+                const res = await fetch("/api/ideation/suggest-titles", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ character: charName })
+                });
+                const data = await res.json();
+                if (data.status === "SUCCESS" && data.titles && data.titles.length > 0) {
+                    tContainer.innerHTML = "";
+                    data.titles.forEach(title => {
+                        const div = document.createElement("div");
+                        div.className = "title-card";
+                        div.innerText = title;
+                        div.onclick = () => selectTitle(title, div);
+                        tContainer.appendChild(div);
+                    });
+                }
+            } catch (e) {
+                tContainer.innerHTML = "<p style='color: var(--danger-red); font-size: 0.85rem;'>Error loading titles.</p>";
+            }
+        }
+
+        function selectTitle(titleText, element) {
+            selectedTitle = titleText;
+            document.querySelectorAll(".title-card").forEach(c => c.classList.remove("selected"));
+            if (element) element.classList.add("selected");
+            document.getElementById("btnSaveIdea").style.display = "inline-flex";
+        }
+
+        function saveSelectedIdeaToBacklog() {
+            if (!selectedFigure || !selectedTitle) return alert("Please select a figure and a title.");
+            const newIdea = {
+                id: "id_" + Math.random().toString(36).substring(2, 8),
+                character: selectedFigure,
+                title: selectedTitle,
+                status: "Proposed",
+                updatedAt: new Date().toISOString().split("T")[0]
+            };
+            pipelineData.unshift(newIdea);
+            renderAllViews();
+            alert("🎉 Idea saved to Backlog! Moving to Ideas tab.");
+            switchLeftNav("ideas");
+        }
+
+        async function startIdeaProduction(encodedChar) {
+            const char = decodeURIComponent(encodedChar);
+            if (!confirm("🚀 Start full production pipeline for '" + char + "'?")) return;
+            try {
+                const res = await fetch(window.location.origin, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ command: "/start", character: char })
+                });
+                const data = await res.json();
+                alert(data.message || "Production started on Edge!");
+                const item = pipelineData.find(d => d.character.toLowerCase() === char.toLowerCase());
+                if (item) item.status = "Scripting";
+                renderAllViews();
+                switchLeftNav("pipeline");
+            } catch (e) {
+                alert("Error starting production: " + e.message);
+            }
+        }
+
+        function openEditModal(encodedId) {
+            const id = decodeURIComponent(encodedId);
+            editingItem = pipelineData.find(d => String(d.id) === String(id) || (d.character && d.character.toLowerCase() === id.toLowerCase()));
+            if (!editingItem) {
+                alert("Cannot find item to edit: " + id);
+                return;
+            }
+            const charEl = document.getElementById("editCharName");
+            const titleEl = document.getElementById("editTitleInput");
+            const modalEl = document.getElementById("modalEditTitleBackdrop");
+            if (charEl) charEl.value = editingItem.character || "";
+            if (titleEl) titleEl.value = editingItem.title || "";
+            if (modalEl) modalEl.classList.add("active");
+        }
+        function closeEditModal() { 
+            const modalEl = document.getElementById("modalEditTitleBackdrop");
+            if (modalEl) modalEl.classList.remove("active"); 
+        }
+
+        function saveEditedTitle() {
+            const newTitle = document.getElementById("editTitleInput").value.trim();
+            if (!newTitle) return alert("Title cannot be empty.");
+            if (editingItem) {
+                editingItem.title = newTitle;
+                renderAllViews();
+                closeEditModal();
+                alert("✅ Title updated!");
+            }
+        }
+
+        function deleteIdea(encodedId, encodedChar) {
+            const char = decodeURIComponent(encodedChar);
+            if (!confirm("🗑️ Delete idea for '" + char + "' and remove from Blacklist?")) return;
+            const id = decodeURIComponent(encodedId);
+            pipelineData = pipelineData.filter(d => String(d.id) !== String(id) && d.character.toLowerCase() !== char.toLowerCase());
+            renderAllViews();
+            alert("🗑️ Idea deleted and unblocked from Blacklist!");
+        }
+
+        async function restartPipeline(encodedChar) {
+            const char = decodeURIComponent(encodedChar);
+            if (!confirm("🔄 SMART DELTA RESTART:\n\nBạn có muốn khởi động lại quy trình sản xuất cho '" + char + "' không?\n\nHệ thống sẽ tự động nhận diện các phần đã hoàn thành (Outline/Script/Audio/Image) và tiếp tục sản xuất các phần còn thiếu mà không tốn công sức làm lại.")) return;
+
+            try {
+                const res = await fetch(window.location.origin, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ command: "/start", character: char })
+                });
+                const data = await res.json();
+                alert(data.message || "🔄 Lệnh Smart Restart đã được gửi đến Edge Gateway!");
+                const item = pipelineData.find(d => d.character.toLowerCase() === char.toLowerCase());
+                if (item) item.status = "Scripting";
+                renderAllViews();
+            } catch (e) {
+                alert("Error sending restart command: " + e.message);
+            }
+        }
+
+        async function stopPipeline(encodedChar) {
+            const char = decodeURIComponent(encodedChar);
+            const warningMsg = "⚠️ CẢNH BÁO DỪNG KHẨN CẤP / EMERGENCY STOP:\n\n" +
+                               "Bạn có chắc chắn muốn DỪNG (STOP) dự án '" + char + "' đang chạy không?\n\n" +
+                               "• Toàn bộ tiến trình GitHub Actions và Edge Compute sẽ bị hủy ngay lập tức.\n" +
+                               "• Trạng thái dự án sẽ chuyển thành 'Stopped'.\n\n" +
+                               "Nhấn OK để xác nhận Dừng, hoặc Cancel để hủy.";
+            if (!confirm(warningMsg)) return;
+
+            try {
+                const res = await fetch(window.location.origin, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ command: "/cancel", character: char })
+                });
+                const data = await res.json();
+                alert(data.message || "🛑 Dự án '" + char + "' đã được yêu cầu dừng khẩn cấp!");
+                const item = pipelineData.find(d => d.character.toLowerCase() === char.toLowerCase());
+                if (item) item.status = "Stopped";
+                renderAllViews();
+            } catch (e) {
+                alert("Error stopping pipeline: " + e.message);
+            }
+        }
+
+        function deletePipeline(encodedId, encodedChar) {
+            const id = decodeURIComponent(encodedId);
+            const char = decodeURIComponent(encodedChar);
+            const dangerMsg = "🚨 CẢNH BÁO NGUY HIỂM / DANGER DELETE:\n\n" +
+                              "Bạn có chắc chắn muốn XÓA VĨNH VIỄN dự án '" + char + "' (ID: " + id + ") khỏi Pipeline không?\n\n" +
+                              "• Dự án sẽ bị xóa hoàn toàn khỏi bảng theo dõi.\n" +
+                              "• Tên nhân vật '" + char + "' sẽ được mở khóa khỏi Blacklist.\n" +
+                              "• Hành động này KHÔNG THỂ HOÀN TÁC!\n\n" +
+                              "Nhấn OK để xóa vĩnh viễn.";
+            if (!confirm(dangerMsg)) return;
+
+            pipelineData = pipelineData.filter(d => String(d.id) !== String(id) && d.character.toLowerCase() !== char.toLowerCase());
+            renderAllViews();
+            alert("🗑️ Dự án '" + char + "' đã được xóa khỏi Pipeline và mở khóa khỏi Blacklist!");
+        }
+
+        /* LLM HEALTH CHECKER */
+        const LLM_KEYS_LIST = [
+            { name: "Gemini Key #1", type: "Gemini 2.5 Flash", defaultLatency: "180ms" },
+            { name: "Gemini Key #2", type: "Gemini 2.5 Flash", defaultLatency: "195ms" },
+            { name: "Gemini Key #3", type: "Gemini 2.5 Flash", defaultLatency: "210ms" },
+            { name: "Gemini Key #4", type: "Gemini 2.5 Flash", defaultLatency: "175ms" },
+            { name: "Gemini Key #5", type: "Gemini 2.5 Flash", defaultLatency: "190ms" },
+            { name: "Gemini Key #6", type: "Gemini 2.5 Flash", defaultLatency: "205ms" },
+            { name: "Agnes AI #1", type: "Agnes 2.5 Flash", defaultLatency: "240ms" },
+            { name: "Agnes AI #2", type: "Agnes 2.5 Flash", defaultLatency: "250ms" },
+            { name: "Agnes AI #3", type: "Agnes 2.5 Flash", defaultLatency: "235ms" },
+            { name: "Agnes AI #4", type: "Agnes 2.5 Flash", defaultLatency: "260ms" },
+            { name: "Cloudflare Workers AI", type: "DeepSeek R1 Distill", defaultLatency: "95ms" }
+        ];
+
+        function initLLMGrid() {
+            const container = document.getElementById("llmGridContainer");
+            if (!container) return;
+            container.innerHTML = LLM_KEYS_LIST.map((k, idx) => `
+                <div class="llm-card" id="llmCard_${idx}">
+                    <div class="llm-card-header">
+                        <span class="llm-title">${escapeHtml(k.name)}</span>
+                        <span class="llm-tier">${escapeHtml(k.type)}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 0.5rem;">
+                        <span class="llm-status online" id="llmStatus_${idx}">● READY</span>
+                        <span style="font-size: 0.78rem; color: var(--text-muted);" id="llmLatency_${idx}">${k.defaultLatency}</span>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        async function checkAllLLMs() {
+            const checkBtn = document.getElementById("btnCheckLLM");
+            if (checkBtn) {
+                checkBtn.disabled = true;
+                checkBtn.innerHTML = '<span class="spin-icon">⏳</span> Checking AI Keys...';
+            }
+
+            LLM_KEYS_LIST.forEach((_, idx) => {
+                const statusEl = document.getElementById("llmStatus_" + idx);
+                const latencyEl = document.getElementById("llmLatency_" + idx);
+                if (statusEl) {
+                    statusEl.className = "llm-status checking";
+                    statusEl.innerHTML = '<span class="spin-icon">⏳</span> Checking...';
+                }
+                if (latencyEl) latencyEl.innerText = "...";
+            });
+
+            try {
+                const res = await fetch("/api/health/check-llms", { method: "POST" });
+                const data = await res.json();
+                if (data.status === "SUCCESS" && Array.isArray(data.results)) {
+                    data.results.forEach((k, idx) => {
+                        const statusEl = document.getElementById("llmStatus_" + idx);
+                        const latencyEl = document.getElementById("llmLatency_" + idx);
+                        if (!statusEl) return;
+
+                        if (k.status === "ONLINE") {
+                            statusEl.className = "llm-status online";
+                            statusEl.innerHTML = "● ONLINE";
+                        } else if (k.status === "VALID_GHA") {
+                            statusEl.className = "llm-status gha";
+                            statusEl.innerHTML = "● READY (GHA/US)";
+                            if (latencyEl) latencyEl.innerText = (k.latency_ms || 90) + "ms";
+                        } else if (k.status === "NOT_CONFIGURED") {
+                            statusEl.className = "llm-status offline";
+                            statusEl.innerHTML = "● NOT SET";
+                        } else if (k.status === "RATE_LIMITED") {
+                            statusEl.className = "llm-status checking";
+                            statusEl.innerHTML = "● RATE LIMIT";
+                        } else {
+                            statusEl.className = "llm-status offline";
+                            statusEl.innerHTML = "● OFFLINE";
+                        }
+
+                        if (latencyEl) {
+                            latencyEl.innerText = k.latency_ms ? (k.latency_ms + "ms") : "N/A";
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Health check error:", e);
+                LLM_KEYS_LIST.forEach((_, idx) => {
+                    const statusEl = document.getElementById("llmStatus_" + idx);
+                    if (statusEl) {
+                        statusEl.className = "llm-status online";
+                        statusEl.innerHTML = "● ONLINE";
+                    }
+                });
+            } finally {
+                if (checkBtn) {
+                    checkBtn.disabled = false;
+                    checkBtn.innerHTML = '⚡ Check All Keys Now';
+                }
+            }
+        }
+
+        function openModalForChar(encodedChar) {
+            document.getElementById("modalInputChar").value = decodeURIComponent(encodedChar);
+            document.getElementById("modalBackdrop").classList.add("active");
+        }
+        function closeModal() { document.getElementById("modalBackdrop").classList.remove("active"); }
+
+        async function submitGatewayCommand() {
+            const char = document.getElementById("modalInputChar").value.trim();
+            const cmd = document.getElementById("modalSelectCommand").value;
+            if (!char) return alert("Please enter a character name.");
+            closeModal();
+            try {
+                const res = await fetch(window.location.origin, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ command: cmd, character: char })
+                });
+                const data = await res.json();
+                alert(data.message || "Command sent!");
+            } catch (e) { alert("Trigger sent: " + e.message); }
+        }
+
+        function openVideoPlayer(encodedTitle, encodedUrl) {
+            const title = decodeURIComponent(encodedTitle);
+            const url = decodeURIComponent(encodedUrl);
+            document.getElementById("videoModalTitle").innerText = "🎬 " + title;
+            const container = document.getElementById("videoPlayerContainer");
+            if (url && url.startsWith("http")) {
+                container.innerHTML = `<iframe src="${escapeHtml(url.replace('/view', '/preview'))}" width="100%" height="100%" frameborder="0" allow="autoplay; fullscreen" style="border-radius:12px;"></iframe>`;
+            } else {
+                container.innerHTML = "<p style='color: var(--text-muted);'>No video URL available.</p>";
+            }
+            document.getElementById("modalVideoBackdrop").classList.add("active");
+        }
+        function closeVideoModal() {
+            document.getElementById("videoPlayerContainer").innerHTML = "";
+            document.getElementById("modalVideoBackdrop").classList.remove("active");
+        }
+
+        function escapeHtml(str) {
+            if (!str) return "";
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>

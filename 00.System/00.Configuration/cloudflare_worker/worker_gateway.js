@@ -2371,8 +2371,8 @@ function getDashboardHTML(sheetId) {
 
             const gdriveContainer = document.getElementById("detailGdriveLinkContainer");
             let gdriveHtml = "";
-            if (item.gdrive) gdriveHtml += '<a href="' + escapeHtml(item.gdrive) + '" target="_blank" class="btn-icon" style="padding: 3px 10px; font-size: 0.78rem;">📁 Drive Folder</a> ';
-            if (item.outline) gdriveHtml += '<a href="' + escapeHtml(item.outline) + '" target="_blank" class="btn-icon" style="padding: 3px 10px; font-size: 0.78rem;">📄 Document</a>';
+            if (item.gdrive) gdriveHtml += \`<a href="\${escapeHtml(item.gdrive)}" target="_blank" class="btn-icon" style="padding: 3px 10px; font-size: 0.78rem;">📁 Drive Folder</a> \`;
+            if (item.outline) gdriveHtml += \`<a href="\${escapeHtml(item.outline)}" target="_blank" class="btn-icon" style="padding: 3px 10px; font-size: 0.78rem;">📄 Document</a>\`;
             gdriveContainer.innerHTML = gdriveHtml;
 
             // Top right action buttons
@@ -2399,7 +2399,7 @@ function getDashboardHTML(sheetId) {
                     criteria: "Kiểm tra trùng lặp Blacklist, tạo dàn ý 15 chương ngủ ngon, 2 phút mở đầu P1 ru ngủ tức thì.",
                     status: item.outline ? "COMPLETED" : (item.status === "Proposed" ? "ACTIVE" : "COMPLETED"),
                     statusText: item.outline ? "✅ Hoàn thành (15 Chương)" : "⚡ Đang xử lý",
-                    link: item.outline ? ('<a href="' + escapeHtml(item.outline) + '" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📄 Xem Outline Doc</a>') : ""
+                    link: item.outline ? \`<a href="\${escapeHtml(item.outline)}" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📄 Xem Outline Doc</a>\` : ""
                 },
                 {
                     num: "GK 2",
@@ -2407,7 +2407,7 @@ function getDashboardHTML(sheetId) {
                     criteria: "Kịch bản ngủ sâu 28,000 - 33,000 từ, giọng kể ấm trầm, Smart Delta chia 15 phần, không giật gân.",
                     status: isScriptDone ? "COMPLETED" : (s.includes("script") ? "ACTIVE" : "PENDING"),
                     statusText: isScriptDone ? "✅ Hoàn thành (31,000+ từ)" : (s.includes("script") ? "✍️ Đang viết kịch bản..." : "⏳ Chờ hoàn thành Step 1"),
-                    link: item.gdrive ? ('<a href="' + escapeHtml(item.gdrive) + '" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📁 Thư mục Script</a>') : ""
+                    link: item.gdrive ? \`<a href="\${escapeHtml(item.gdrive)}" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📁 Thư mục Script</a>\` : ""
                 },
                 {
                     num: "GK 3",
@@ -2415,7 +2415,7 @@ function getDashboardHTML(sheetId) {
                     criteria: "15 Runners chạy song song trên GitHub Actions, chuẩn âm lượng EBU R128 (-16 LUFS), lọc tạp âm 24kHz Mono MP3.",
                     status: isAudioDone ? "COMPLETED" : (s.includes("voice") ? "ACTIVE" : "PENDING"),
                     statusText: isAudioDone ? "✅ Hoàn thành (15/15 Audio Parts)" : (s.includes("voice") ? "🎙️ Đang thu âm 15 Runners..." : "⏳ Chờ kịch bản hoàn thành"),
-                    link: item.gdrive ? ('<a href="' + escapeHtml(item.gdrive) + '" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📁 Audio Parts</a>') : ""
+                    link: item.gdrive ? \`<a href="\${escapeHtml(item.gdrive)}" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📁 Audio Parts</a>\` : ""
                 },
                 {
                     num: "GK 4",
@@ -2423,7 +2423,7 @@ function getDashboardHTML(sheetId) {
                     criteria: "Tranh sơn dầu 16:9 Rembrandt siêu thực 4K (3840x2160), 15 - 45 Keyframes đồng bộ phong cách cổ điển.",
                     status: isImgDone ? "COMPLETED" : (item.image === "Imaging" ? "ACTIVE" : "PENDING"),
                     statusText: isImgDone ? "✅ Hoàn thành (4K Keyframes)" : (item.image === "Imaging" ? "🎨 Đang vẽ tranh 4K..." : "⏳ Chờ kích hoạt Keyframes"),
-                    link: item.image && item.image.startsWith("http") ? ('<a href="' + escapeHtml(item.image) + '" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">🖼️ Xem Keyframes</a>') : ""
+                    link: item.image && item.image.startsWith("http") ? \`<a href="\${escapeHtml(item.image)}" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">🖼️ Xem Keyframes</a>\` : ""
                 },
                 {
                     num: "GK 5",
@@ -2431,7 +2431,7 @@ function getDashboardHTML(sheetId) {
                     criteria: "Ghép video 4K UHD 30fps Ultra HD, hiệu ứng Ken Burns chuyển cảnh êm ru, thời lượng chuẩn >90 phút.",
                     status: isVideoDone ? "COMPLETED" : (item.status === "Producing" ? "ACTIVE" : "PENDING"),
                     statusText: isVideoDone ? "✅ Video Master Hoàn Tất" : (item.status === "Producing" ? "🎬 Đang ráp video 4K FFmpeg..." : "⏳ Chờ Audio & Images"),
-                    link: item.video ? ('<button class="btn-action btn-primary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="openVideoPlayer(\'' + escapeHtml(item.title) + '\', \'' + escapeHtml(item.video) + '\')">▶️ Xem Video Preview</button>') : ""
+                    link: item.video ? \`<button class="btn-action btn-primary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="openVideoPlayer('\${encodeURIComponent(item.title || '')}', '\${encodeURIComponent(item.video || '')}')">▶️ Xem Video Preview</button>\` : ""
                 },
                 {
                     num: "GK 6 & 7",
@@ -2439,7 +2439,7 @@ function getDashboardHTML(sheetId) {
                     criteria: "Lưu trữ cấu trúc sạch tại 01.Characters/{Character}/, tự động cập nhật Google Sheet & Blacklist.",
                     status: isVideoDone ? "COMPLETED" : "ACTIVE",
                     statusText: "☁️ Đồng bộ tự động 100%",
-                    link: '<a href="https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📊 Master Sheet</a>'
+                    link: \`<a href="https://docs.google.com/spreadsheets/d/\${SPREADSHEET_ID}" target="_blank" class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;">📊 Master Sheet</a>\`
                 }
             ];
 
