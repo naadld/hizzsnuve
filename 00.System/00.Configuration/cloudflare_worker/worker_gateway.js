@@ -927,17 +927,12 @@ function getDashboardHTML(sheetId) {
         <div class="login-box">
             <div class="login-icon">🌙</div>
             <h2 class="login-title">HistorySnooze Control Center</h2>
-            <p class="login-sub">Nhập mật khẩu hoặc bấm Đăng nhập nhanh để vào hệ thống</p>
+            <p class="login-sub">Nhập mật khẩu quản trị để truy cập hệ thống</p>
             
             <div class="login-form">
                 <div class="pass-container">
-                    <input type="password" id="inputPass" placeholder="Nhập mật khẩu hoặc mã PIN..." onkeydown="if(event.key==='Enter') checkPassword()">
+                    <input type="password" id="inputPass" placeholder="Nhập mật khẩu quản trị..." onkeydown="if(event.key==='Enter') checkPassword()">
                     <button type="button" class="eye-toggle-btn" id="eyeBtn" onclick="togglePassView()" title="Show/Hide Password">👁️</button>
-                </div>
-                
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-secondary);">
-                    <span>Mật khẩu: <strong style="color:#60a5fa; cursor:pointer;" onclick="quickFillPass()" title="Bấm để tự điền">HLHana@292710$</strong></span>
-                    <button type="button" onclick="quickFillPass()" style="background:rgba(59,130,246,0.2); border:1px solid rgba(59,130,246,0.4); color:#93c5fd; padding:3px 8px; border-radius:6px; font-size:0.75rem; cursor:pointer;">⚡ Tự điền</button>
                 </div>
 
                 <label class="remember-group">
@@ -1132,11 +1127,6 @@ function getDashboardHTML(sheetId) {
                 passInput.type = "password";
                 eyeBtn.innerText = "👁️";
             }
-        }
-
-        function quickFillPass() {
-            document.getElementById("inputPass").value = MASTER_PASS;
-            checkPassword();
         }
 
         function checkPassword() {
