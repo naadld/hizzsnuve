@@ -233,4 +233,33 @@ Toàn bộ các Gatekeepers trên GitHub Actions và VPS Linux đều được k
 
 ## 🎨 8. Công Thức Sinh Prompts Tràn Viền Chuẩn Kênh (Full-Bleed Edge-to-Edge)
 
+```text
+Late-15th-century illuminated manuscript style painting of [SCENE DESCRIPTION], 
+rich tempera and gold leaf on aged parchment, glowing candlelight, 
+fine intricate line work, full-bleed edge-to-edge, zero margins, no frame, 16:9 4K
+```
+
+---
+
+## 🧠 9. Cơ Chế Khởi Động Lại Thông Minh & Tự Vá Lỗi (Smart Delta Restart & Auto-Healing)
+
+Khi anh kích hoạt lại bất kỳ công đoạn nào (qua nút `Restart` hoặc chạy lại lệnh), hệ thống **KHÔNG BAO GIỜ XÓA HẾT ĐỂ CHẠY LẠI TỪ ĐẦU**, mà tuân thủ nguyên tắc **Smart Delta Audit**:
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│ NGUYÊN TẮC VẬN HÀNH SMART DELTA RESTART:                                                │
+│ 1. KIỂM TOÁN TẬN GỐC (Deep Audit): Chạy Gatekeeper kiểm tra từng file đơn lẻ.            │
+│ 2. GIỮ NGUYÊN 100% FILE HỢP LỆ: Các file đã đạt chuẩn Gatekeeper sẽ được bỏ qua (Skip).   │
+│ 3. DỌN SẠCH FILE LỖI: Chỉ xóa các file rác, file câm, file rỗng hoặc dung lượng < 30KB.  │
+│ 4. SINH BÙ PHẦN THIẾU (Delta Generation): Chỉ sinh tự động đúng những phần còn thiếu!   │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Công Đoạn | Cơ Chế Kiểm Tra Smart Audit | Hành Động Khi Restart |
+| :--- | :--- | :--- |
+| **1. Kịch Bản (`01.Preproduction/`)** | Kiểm tra độ dài 750–900 từ, lọc số & dấu. | Giữ nguyên các tập đã đạt GK2/GK3; chỉ viết bổ sung các tập còn thiếu. |
+| **2. Giọng Đọc (`audio/`)** | Chạy GK4: Dung lượng $\ge$ 10KB, RMS $\ge 0.003$, Duration $\ge 0.15s$/từ. | Bỏ qua các Part đã Passed (`⏩ [SMART SKIP]`); xóa file lỗi và chỉ gen đúng các Part bị hỏng. |
+| **3. Ảnh Keyframe (`keyframes/`)** | Chạy GK5: Dung lượng $\ge$ 30KB (chuẩn 16:9). | Bỏ qua các ảnh hợp lệ hoặc ảnh anh đã tự đưa vào; chỉ gen đúng các beat ảnh còn thiếu. |
+| **4. Dựng Phim (`video_parts/`)** | Kiểm tra `Part_XX_Video.mp4` (Duration > 10s). | Giữ nguyên các Part Video đã render xong; chỉ render Part bị lỗi rồi ghép lại trong 10s. |
+
 `[Core scene description, key characters & actions, setting, mood, color accents] — late-15th-century illuminated manuscript style painting, tempera and shell-gold, flat medieval perspective, fine brown-ink outlines, full-bleed edge-to-edge painting extending to all four edges of the 16:9 canvas, zero margins, no outer paper, no parchment border, no decorative frame, no page border, wide cinematic 16:9 composition, ultra-high-resolution (4K)`
