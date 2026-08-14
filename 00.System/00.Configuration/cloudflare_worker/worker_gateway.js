@@ -274,6 +274,71 @@ Return ONLY a JSON array of 5 strings:
     }
 
     // ==========================================
+    // 2.6. DIRECT GOOGLE SHEETS PIPELINE PROXY (Edge Direct Fetch)
+    // ==========================================
+    if (pathname === "/api/pipeline/data" && (request.method === "GET" || request.method === "POST")) {
+      try {
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Pipeline`;
+        const res = await fetch(sheetUrl);
+        const txt = await res.text();
+        const jsonMatch = txt.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/);
+        
+        let rows = [];
+        if (jsonMatch && jsonMatch[1]) {
+          const parsed = JSON.parse(jsonMatch[1]);
+          rows = parsed.table ? parsed.table.rows : [];
+        }
+
+        const items = [];
+        let proposed = 0, script = 0, voice = 0, ready = 0, done = 0;
+
+        rows.forEach((r, idx) => {
+          if (idx === 0) return;
+          const c = r.c;
+          if (!c || !c[1] || !c[1].v) return;
+          const charName = String(c[1].v).trim();
+          if (charName === "Historical_Figure") return;
+
+          const st = c[3] && c[3].v ? String(c[3].v).trim() : "Proposed";
+          if (st === "Proposed" || st === "Pending") proposed++;
+          else if (st.toLowerCase().includes("script")) script++;
+          else if (st.toLowerCase().includes("voice")) voice++;
+          else if (st.toLowerCase().includes("ready")) ready++;
+          else if (st.toLowerCase().includes("done")) done++;
+
+          let updated = "";
+          if (c[10]) {
+            updated = c[10].f || c[10].v || "";
+          }
+
+          items.push({
+            id: c[0] && c[0].v ? String(c[0].v).trim() : "id_" + idx,
+            character: charName,
+            title: c[2] && c[2].v ? String(c[2].v).trim() : "",
+            status: st,
+            gdrive: c[4] && c[4].v ? String(c[4].v) : "",
+            outline: c[5] && c[5].v ? String(c[5].v) : "",
+            script: c[6] && c[6].v ? String(c[6].v) : "",
+            voiceover: c[7] && c[7].v ? String(c[7].v) : "",
+            image: c[8] && c[8].v ? String(c[8].v) : "",
+            video: c[9] && c[9].v ? String(c[9].v) : "",
+            updatedAt: updated
+          });
+        });
+
+        return jsonResponse({
+          status: "SUCCESS",
+          timestamp: new Date().toISOString(),
+          count: items.length,
+          kpis: { proposed, script, voice, ready, done, total: items.length },
+          data: items
+        });
+      } catch (err) {
+        return jsonResponse({ status: "ERROR", message: err.message }, 500);
+      }
+    }
+
+    // ==========================================
     // 3. CLOUDFLARE EDGE SCRIPTING ENGINE (Part-by-Part + GK1, GK2, GK3)
     // ==========================================
 
@@ -911,7 +976,6 @@ function getDashboardHTML(sheetId) {
             flex-direction: column;
         }
 
-        /* Login Screen Overlay */
         .login-overlay {
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -979,14 +1043,12 @@ function getDashboardHTML(sheetId) {
         .login-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(56, 189, 248, 0.4); }
         .error-msg { font-size: 0.8rem; color: var(--danger-red); margin-top: 0.75rem; display: none; }
 
-        /* Main App Layout */
         .app-layout {
             display: none;
             flex-direction: column;
             min-height: 100vh;
         }
 
-        /* Top Header Bar */
         .top-navbar {
             display: flex;
             justify-content: space-between;
@@ -1025,7 +1087,6 @@ function getDashboardHTML(sheetId) {
             letter-spacing: 0.03em;
         }
 
-        /* Top Navigation Tabs */
         .top-nav-tabs {
             display: flex;
             align-items: center;
@@ -1084,14 +1145,12 @@ function getDashboardHTML(sheetId) {
         }
         .btn-icon:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 
-        /* Workspace Body (Sidebar + Content) */
         .app-body {
             display: flex;
             flex: 1;
             overflow: hidden;
         }
 
-        /* Left Sidebar Menu */
         .sidebar {
             width: 260px;
             background: rgba(15, 23, 42, 0.65);
@@ -1163,7 +1222,6 @@ function getDashboardHTML(sheetId) {
             padding-top: 1rem;
         }
 
-        /* Content Viewport */
         .content-viewport {
             flex: 1;
             padding: 2rem;
@@ -1182,7 +1240,6 @@ function getDashboardHTML(sheetId) {
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Common View Header */
         .view-header {
             margin-bottom: 1.75rem;
             display: flex;
@@ -1201,7 +1258,6 @@ function getDashboardHTML(sheetId) {
             margin-top: 0.2rem;
         }
 
-        /* Glass Cards & Containers */
         .glass-card {
             background: var(--bg-card);
             backdrop-filter: var(--glass-blur);
@@ -1211,46 +1267,88 @@ function getDashboardHTML(sheetId) {
             box-shadow: var(--shadow-soft);
         }
 
-        /* TAB 1: IDEATION STYLES */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .kpi-card {
+            padding: 1.25rem 1.5rem;
+            border-radius: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            transition: all 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--border-highlight);
+            box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.5);
+        }
+        .kpi-icon {
+            font-size: 1.8rem;
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+        }
+        .kpi-data { display: flex; flex-direction: column; }
+        .kpi-value { font-family: var(--font-heading); font-size: 1.8rem; font-weight: 700; line-height: 1.1; color: #fff; }
+        .kpi-label { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem; }
+
+        .system-status-banner {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem 1.5rem;
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-color);
+        }
+        .status-item { display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: var(--text-secondary); }
+        .status-item strong { color: #fff; }
+
+        .quick-launcher {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .quick-btn {
+            padding: 1rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .quick-btn:hover {
+            background: rgba(56, 189, 248, 0.12);
+            border-color: rgba(56, 189, 248, 0.3);
+            transform: translateY(-2px);
+        }
+
         .ideation-split {
             display: grid;
             grid-template-columns: 1fr 1.2fr;
             gap: 1.5rem;
         }
-        .form-group {
-            margin-bottom: 1.25rem;
-        }
-        .form-group label {
-            display: block;
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .input-text {
-            width: 100%;
-            padding: 0.85rem 1rem;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            color: #fff;
-            font-size: 0.9rem;
-            outline: none;
-            transition: all 0.2s;
-        }
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .input-text { width: 100%; padding: 0.85rem 1rem; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-color); border-radius: 10px; color: #fff; font-size: 0.9rem; outline: none; transition: all 0.2s; }
         .input-text:focus { border-color: var(--primary-blue); }
-        .btn-action {
-            padding: 0.8rem 1.4rem;
-            border-radius: 10px;
-            font-size: 0.88rem;
-            font-weight: 700;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex; align-items: center; gap: 0.5rem;
-        }
+        .btn-action { padding: 0.8rem 1.4rem; border-radius: 10px; font-size: 0.88rem; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; }
         .btn-primary { background: linear-gradient(135deg, var(--primary-blue), #0284c7); color: #fff; }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(56, 189, 248, 0.35); }
         .btn-success { background: linear-gradient(135deg, var(--success-green), #059669); color: #fff; }
@@ -1258,225 +1356,74 @@ function getDashboardHTML(sheetId) {
         .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger-red); border: 1px solid rgba(239, 68, 68, 0.3); }
         .btn-danger:hover { background: rgba(239, 68, 68, 0.25); }
 
-        .ideation-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            margin-top: 1rem;
-        }
-        .figure-card, .title-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .figure-card:hover, .title-card:hover {
-            background: rgba(56, 189, 248, 0.08);
-            border-color: rgba(56, 189, 248, 0.3);
-            transform: translateX(4px);
-        }
-        .figure-card.selected, .title-card.selected {
-            background: rgba(56, 189, 248, 0.15);
-            border-color: var(--primary-blue);
-        }
+        .ideation-list { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; }
+        .figure-card, .title-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem 1.25rem; cursor: pointer; transition: all 0.2s; }
+        .figure-card:hover, .title-card:hover { background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.3); transform: translateX(4px); }
+        .figure-card.selected, .title-card.selected { background: rgba(56, 189, 248, 0.15); border-color: var(--primary-blue); }
         .figure-card h4 { color: #fff; font-size: 0.95rem; font-weight: 700; }
         .figure-card p { color: var(--text-secondary); font-size: 0.82rem; margin-top: 0.25rem; }
 
-        /* TAB 2 & 3: TABLES */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-            font-size: 0.88rem;
-        }
-        .data-table th {
-            padding: 0.85rem 1rem;
-            color: var(--text-secondary);
-            font-family: var(--font-heading);
-            font-weight: 600;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .data-table td {
-            padding: 1rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            vertical-align: middle;
-        }
+        .data-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
+        .data-table th { padding: 0.85rem 1rem; color: var(--text-secondary); font-family: var(--font-heading); font-weight: 600; border-bottom: 1px solid var(--border-color); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .data-table td { padding: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.04); vertical-align: middle; }
         .data-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
-        .status-pill {
-            display: inline-flex; padding: 0.25rem 0.7rem;
-            border-radius: 20px; font-size: 0.72rem; font-weight: 700;
-            text-transform: uppercase; letter-spacing: 0.03em;
-        }
+        .status-pill { display: inline-flex; padding: 0.25rem 0.7rem; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
         .status-proposed { background: rgba(245, 158, 11, 0.15); color: var(--accent-gold); border: 1px solid rgba(245, 158, 11, 0.3); }
-        .status-scripting { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
-        .status-voicing { background: rgba(56, 189, 248, 0.15); color: var(--primary-blue); border: 1px solid rgba(56, 189, 248, 0.3); }
+        .status-scripting, .status-script { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
+        .status-voicing, .status-voiceover { background: rgba(56, 189, 248, 0.15); color: var(--primary-blue); border: 1px solid rgba(56, 189, 248, 0.3); }
         .status-ready { background: rgba(16, 185, 129, 0.15); color: var(--success-green); border: 1px solid rgba(16, 185, 129, 0.3); }
         .status-done { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid #10b981; }
 
-        /* Step Progress Bar */
-        .step-progress-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .step-node {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            padding: 3px 8px;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-        }
-        .step-node.completed {
-            background: rgba(16, 185, 129, 0.15);
-            border-color: rgba(16, 185, 129, 0.3);
-            color: var(--success-green);
-        }
-        .step-node.active {
-            background: rgba(56, 189, 248, 0.15);
-            border-color: rgba(56, 189, 248, 0.4);
-            color: var(--primary-blue);
-        }
+        .step-progress-row { display: flex; align-items: center; gap: 6px; }
+        .step-node { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color); color: var(--text-muted); }
+        .step-node.completed { background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: var(--success-green); }
+        .step-node.active { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: var(--primary-blue); }
 
-        /* TAB 4: VIDEOS GRID */
-        .video-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.5rem;
-        }
-        .video-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            overflow: hidden;
-            transition: all 0.25s;
-            display: flex;
-            flex-direction: column;
-        }
-        .video-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.7);
-            border-color: var(--border-highlight);
-        }
-        .video-thumb {
-            width: 100%;
-            height: 180px;
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            cursor: pointer;
-        }
-        .video-play-btn {
-            width: 54px; height: 54px;
-            border-radius: 50%;
-            background: rgba(56, 189, 248, 0.9);
-            color: #090d16;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.5rem;
-            transition: all 0.2s;
-            box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
-        }
+        .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; }
+        .video-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; transition: all 0.25s; display: flex; flex-direction: column; }
+        .video-card:hover { transform: translateY(-4px); box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.7); border-color: var(--border-highlight); }
+        .video-thumb { width: 100%; height: 180px; background: linear-gradient(135deg, #1e293b, #0f172a); display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+        .video-play-btn { width: 54px; height: 54px; border-radius: 50%; background: rgba(56, 189, 248, 0.9); color: #090d16; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; transition: all 0.2s; box-shadow: 0 0 20px rgba(56, 189, 248, 0.6); }
         .video-thumb:hover .video-play-btn { transform: scale(1.1); }
-        .video-dur-tag {
-            position: absolute; right: 10px; bottom: 10px;
-            background: rgba(0, 0, 0, 0.8);
-            color: #fff; font-size: 0.75rem; font-weight: 700;
-            padding: 3px 8px; border-radius: 6px;
-        }
+        .video-dur-tag { position: absolute; right: 10px; bottom: 10px; background: rgba(0, 0, 0, 0.8); color: #fff; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
         .video-info { padding: 1.25rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
         .video-info h3 { font-size: 1rem; color: #fff; font-weight: 700; line-height: 1.3; margin-bottom: 0.4rem; }
         .video-info p { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem; }
 
-        /* TOP TAB 1: LLM HEALTH GRID */
-        .llm-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 1.25rem;
-        }
-        .llm-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 1.25rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-        .llm-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        .llm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; }
+        .llm-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+        .llm-card-header { display: flex; justify-content: space-between; align-items: center; }
         .llm-title { font-weight: 700; color: #fff; font-size: 0.95rem; }
         .llm-tier { font-size: 0.72rem; color: var(--text-muted); }
-        .llm-status {
-            display: flex; align-items: center; gap: 0.4rem;
-            font-size: 0.78rem; font-weight: 600;
-        }
+        .llm-status { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 600; }
         .llm-status.online { color: var(--success-green); }
         .llm-status.offline { color: var(--danger-red); }
-        .llm-status.waiting { color: var(--text-muted); }
 
-        /* TOP TAB 2: QUOTAS GRID */
-        .quotas-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1.5rem;
-        }
-        .quota-card {
-            padding: 1.5rem;
-            border-radius: 16px;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-        }
+        .quotas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
+        .quota-card { padding: 1.5rem; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--border-color); }
         .quota-val { font-family: var(--font-heading); font-size: 2rem; font-weight: 700; color: #fff; line-height: 1.1; margin: 0.4rem 0; }
         .quota-bar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-top: 0.75rem; }
         .quota-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary-blue), var(--accent-indigo)); border-radius: 4px; }
 
-        /* Modal Backdrop */
-        .modal-backdrop {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px);
-            display: none; justify-content: center; align-items: center; z-index: 500;
-        }
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); display: none; justify-content: center; align-items: center; z-index: 500; }
         .modal-backdrop.active { display: flex; }
-        .modal {
-            width: 90%; max-width: 520px;
-            padding: 1.75rem; border-radius: 20px;
-            background: rgba(15, 23, 42, 0.95);
-            border: 1px solid var(--border-highlight);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
-        }
+        .modal { width: 90%; max-width: 520px; padding: 1.75rem; border-radius: 20px; background: rgba(15, 23, 42, 0.95); border: 1px solid var(--border-highlight); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8); }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
         .modal-header h3 { font-family: var(--font-heading); color: #fff; font-size: 1.2rem; }
         .modal-close { background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; }
     </style>
 </head>
 <body>
-    <!-- Login Screen Overlay -->
     <div class="login-overlay" id="loginOverlay">
         <div class="login-box">
             <div class="login-icon">🌙</div>
             <h2 class="login-title">History Snooze</h2>
             <p class="login-sub">Nhập mật khẩu quản trị để truy cập hệ thống</p>
-            
             <div class="login-form">
                 <div class="pass-container">
                     <input type="password" id="inputPass" placeholder="Nhập mật khẩu quản trị..." onkeydown="if(event.key==='Enter') checkPassword()">
                     <button type="button" class="eye-toggle-btn" id="eyeBtn" onclick="togglePassView()" title="Show/Hide Password">👁️</button>
                 </div>
-
                 <label class="remember-group">
                     <input type="checkbox" id="checkRemember" checked>
                     <span>Ghi nhớ đăng nhập trên trình duyệt này</span>
@@ -1487,9 +1434,7 @@ function getDashboardHTML(sheetId) {
         </div>
     </div>
 
-    <!-- Main App Layout -->
     <div class="app-layout" id="appContainer">
-        <!-- Top Navbar -->
         <header class="top-navbar">
             <div class="top-brand">
                 <div class="top-logo-icon">🌙</div>
@@ -1498,13 +1443,10 @@ function getDashboardHTML(sheetId) {
                     <span>100% Online Global ASMR Production</span>
                 </div>
             </div>
-
-            <!-- Top Navigation Tabs -->
             <div class="top-nav-tabs">
                 <button class="top-tab-btn" id="topBtnLLM" onclick="switchTopTab('llm')">🤖 LLM Health</button>
                 <button class="top-tab-btn" id="topBtnQuotas" onclick="switchTopTab('quotas')">📊 Quotas & Usage</button>
             </div>
-
             <div class="top-actions">
                 <div class="conn-pill" id="connBadge">
                     <span class="conn-dot"></span>
@@ -1515,13 +1457,14 @@ function getDashboardHTML(sheetId) {
             </div>
         </header>
 
-        <!-- Workspace Body -->
         <div class="app-body">
-            <!-- Left Sidebar Navigation -->
             <aside class="sidebar">
                 <div class="sidebar-menu">
-                    <div class="sidebar-section-title">Studio Production</div>
-                    <button class="nav-item active" id="navBtnIdeation" onclick="switchLeftNav('ideation')">
+                    <div class="sidebar-section-title">Control Studio</div>
+                    <button class="nav-item active" id="navBtnDashboard" onclick="switchLeftNav('dashboard')">
+                        <div class="nav-item-left"><span>📊</span> <span>Dashboard</span></div>
+                    </button>
+                    <button class="nav-item" id="navBtnIdeation" onclick="switchLeftNav('ideation')">
                         <div class="nav-item-left"><span>💡</span> <span>Ideation</span></div>
                         <span class="nav-badge">AI</span>
                     </button>
@@ -1538,7 +1481,6 @@ function getDashboardHTML(sheetId) {
                         <span class="nav-badge" id="badgeVideos">0</span>
                     </button>
                 </div>
-
                 <div class="sidebar-footer">
                     <button class="nav-item" id="navBtnHelp" onclick="switchLeftNav('help')">
                         <div class="nav-item-left"><span>❓</span> <span>Help & Docs</span></div>
@@ -1546,56 +1488,103 @@ function getDashboardHTML(sheetId) {
                 </div>
             </aside>
 
-            <!-- Main Content Viewport -->
             <main class="content-viewport">
-                <!-- VIEW 1: IDEATION -->
-                <div class="view-panel active" id="viewIdeation">
+                <div class="view-panel active" id="viewDashboard">
+                    <div class="view-header">
+                        <div class="view-header-title">
+                            <h2>📊 Studio Overview Dashboard</h2>
+                            <p>Tổng quan tiến độ sản xuất tài liệu ASMR & tình trạng kết nối toàn hệ thống</p>
+                        </div>
+                        <button class="btn-action btn-primary" onclick="switchLeftNav('ideation')">💡 + New Ideation</button>
+                    </div>
+
+                    <div class="kpi-grid">
+                        <div class="kpi-card" onclick="switchLeftNav('ideas')" style="cursor:pointer;">
+                            <div class="kpi-icon">💡</div>
+                            <div class="kpi-data"><span class="kpi-value" id="kpiProposed">0</span><span class="kpi-label">Ideas Proposed</span></div>
+                        </div>
+                        <div class="kpi-card" onclick="switchLeftNav('pipeline')" style="cursor:pointer;">
+                            <div class="kpi-icon">📜</div>
+                            <div class="kpi-data"><span class="kpi-value" id="kpiScript">0</span><span class="kpi-label">Scripting Stage</span></div>
+                        </div>
+                        <div class="kpi-card" onclick="switchLeftNav('pipeline')" style="cursor:pointer;">
+                            <div class="kpi-icon">🎙️</div>
+                            <div class="kpi-data"><span class="kpi-value" id="kpiVoiceover">0</span><span class="kpi-label">Voiceover Matrix</span></div>
+                        </div>
+                        <div class="kpi-card" onclick="switchLeftNav('pipeline')" style="cursor:pointer;">
+                            <div class="kpi-icon">🎬</div>
+                            <div class="kpi-data"><span class="kpi-value" id="kpiReady">0</span><span class="kpi-label">Production Ready</span></div>
+                        </div>
+                        <div class="kpi-card" onclick="switchLeftNav('videos')" style="cursor:pointer;">
+                            <div class="kpi-icon">🎉</div>
+                            <div class="kpi-data"><span class="kpi-value" id="kpiDone">0</span><span class="kpi-label">Master Videos</span></div>
+                        </div>
+                    </div>
+
+                    <div class="system-status-banner">
+                        <div class="status-item"><span class="conn-dot"></span><span>Edge Gateway: <strong>Cloudflare Online</strong></span></div>
+                        <div class="status-item"><span class="conn-dot"></span><span>Database: <strong>Master Sheets Synced</strong></span></div>
+                        <div class="status-item"><span class="conn-dot"></span><span>Storage Hub: <strong>Zero-Sprawl GDrive</strong></span></div>
+                        <div class="status-item"><span class="conn-dot"></span><span>CI/CD Matrix: <strong>15-Runners Active</strong></span></div>
+                    </div>
+
+                    <div class="quick-launcher">
+                        <button class="quick-btn" onclick="switchLeftNav('ideation')">✨ <span>Start AI Ideation</span></button>
+                        <button class="quick-btn" onclick="switchLeftNav('ideas')">📂 <span>Review Ideas Backlog</span></button>
+                        <button class="quick-btn" onclick="switchLeftNav('pipeline')">🚀 <span>View Active Pipeline</span></button>
+                        <button class="quick-btn" onclick="switchTopTab('llm')">🤖 <span>Check 11 AI Keys</span></button>
+                    </div>
+
+                    <div class="glass-card" style="padding: 0; overflow: hidden; margin-top: 1.5rem;">
+                        <div style="padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="font-size: 1rem; color: #fff;">🚀 Recent & Active Pipeline Projects</h3>
+                            <button class="btn-icon" onclick="switchLeftNav('pipeline')">View Full Pipeline ➔</button>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>ID</th><th>Historical Figure</th><th>YouTube Title</th><th>Status</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="dashboardTbody">
+                                <tr><td colspan="5" style="text-align:center; padding: 2rem;">Loading Projects...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="view-panel" id="viewIdeation">
                     <div class="view-header">
                         <div class="view-header-title">
                             <h2>💡 AI Ideation Studio</h2>
                             <p>Khởi tạo nhân vật lịch sử & tiêu đề chuẩn công thức ASMR HistorySnooze</p>
                         </div>
                     </div>
-
                     <div class="ideation-split">
-                        <!-- Step 1 Form -->
                         <div class="glass-card">
                             <div class="form-group">
                                 <label>Historical Era / Topic Keyword:</label>
                                 <div style="display:flex; gap: 0.5rem;">
-                                    <input type="text" id="inputKeyword" class="input-text" placeholder="e.g. Ancient Rome, Viking Age, Edo Japan" value="Ancient Rome">
+                                    <input type="text" id="inputKeyword" class="input-text" placeholder="e.g. Ancient Rome, Viking Age" value="Ancient Rome">
                                     <button class="btn-action btn-primary" id="btnGenFigures" onclick="generateFigures()">✨ Suggest</button>
                                 </div>
                             </div>
-
                             <div class="form-group">
                                 <label>Suggested Historical Figures:</label>
-                                <div class="ideation-list" id="figuresListContainer">
-                                    <p style="color: var(--text-muted); font-size: 0.85rem;">Nhập từ khóa và bấm Suggest để AI gợi ý 5 nhân vật...</p>
-                                </div>
+                                <div class="ideation-list" id="figuresListContainer"><p style="color: var(--text-muted); font-size: 0.85rem;">Nhập từ khóa và bấm Suggest để AI gợi ý 5 nhân vật...</p></div>
                             </div>
                         </div>
-
-                        <!-- Step 2 Form -->
                         <div class="glass-card">
                             <div class="form-group">
                                 <label>Selected Figure & High-CTR Titles:</label>
                                 <input type="text" id="selectedFigureInput" class="input-text" placeholder="Chọn một nhân vật bên trái..." readonly style="margin-bottom: 0.75rem;">
-                                <div class="ideation-list" id="titlesListContainer">
-                                    <p style="color: var(--text-muted); font-size: 0.85rem;">Danh sách 5 tiêu đề YouTube sẽ xuất hiện tại đây...</p>
-                                </div>
+                                <div class="ideation-list" id="titlesListContainer"><p style="color: var(--text-muted); font-size: 0.85rem;">Danh sách 5 tiêu đề YouTube sẽ xuất hiện tại đây...</p></div>
                             </div>
-
                             <div style="margin-top: 1.5rem; display:flex; justify-content:flex-end;">
-                                <button class="btn-action btn-success" id="btnSaveIdea" onclick="saveSelectedIdeaToBacklog()" style="display:none;">
-                                    💾 Save to Ideas (Backlog)
-                                </button>
+                                <button class="btn-action btn-success" id="btnSaveIdea" onclick="saveSelectedIdeaToBacklog()" style="display:none;">💾 Save to Ideas (Backlog)</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- VIEW 2: IDEAS BACKLOG -->
                 <div class="view-panel" id="viewIdeas">
                     <div class="view-header">
                         <div class="view-header-title">
@@ -1603,26 +1592,16 @@ function getDashboardHTML(sheetId) {
                             <p>Các ý tưởng đã chọn từ Ideation, sẵn sàng kích hoạt sản xuất</p>
                         </div>
                     </div>
-
                     <div class="glass-card" style="padding: 0; overflow: hidden;">
                         <table class="data-table">
                             <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Historical Figure</th>
-                                    <th>YouTube Title</th>
-                                    <th>Created Date</th>
-                                    <th>Actions</th>
-                                </tr>
+                                <tr><th>ID</th><th>Historical Figure</th><th>YouTube Title</th><th>Created Date</th><th>Actions</th></tr>
                             </thead>
-                            <tbody id="ideasTbody">
-                                <tr><td colspan="5" style="text-align:center; padding: 2rem;">Loading Ideas...</td></tr>
-                            </tbody>
+                            <tbody id="ideasTbody"><tr><td colspan="5" style="text-align:center; padding: 2rem;">Loading Ideas...</td></tr></tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- VIEW 3: PIPELINE -->
                 <div class="view-panel" id="viewPipeline">
                     <div class="view-header">
                         <div class="view-header-title">
@@ -1630,27 +1609,16 @@ function getDashboardHTML(sheetId) {
                             <p>Theo dõi tiến độ các dự án đang chạy (Scripting, Voiceover, Keyframes, Assembly)</p>
                         </div>
                     </div>
-
                     <div class="glass-card" style="padding: 0; overflow: hidden;">
                         <table class="data-table">
                             <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Historical Figure</th>
-                                    <th>Status</th>
-                                    <th>Step Progress</th>
-                                    <th>GDrive Links</th>
-                                    <th>Actions</th>
-                                </tr>
+                                <tr><th>ID</th><th>Historical Figure</th><th>Status</th><th>Step Progress</th><th>GDrive Links</th><th>Actions</th></tr>
                             </thead>
-                            <tbody id="pipelineTbody">
-                                <tr><td colspan="6" style="text-align:center; padding: 2rem;">Loading Active Pipeline...</td></tr>
-                            </tbody>
+                            <tbody id="pipelineTbody"><tr><td colspan="6" style="text-align:center; padding: 2rem;">Loading Active Pipeline...</td></tr></tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- VIEW 4: VIDEO LIBRARY -->
                 <div class="view-panel" id="viewVideos">
                     <div class="view-header">
                         <div class="view-header-title">
@@ -1658,58 +1626,20 @@ function getDashboardHTML(sheetId) {
                             <p>Kho video tài liệu 90 phút đã hoàn thiện xuất sắc</p>
                         </div>
                     </div>
-
-                    <div class="video-grid" id="videoGridContainer">
-                        <p style="color: var(--text-muted); font-size: 0.9rem;">Chưa có video nào hoàn thành.</p>
-                    </div>
+                    <div class="video-grid" id="videoGridContainer"><p style="color: var(--text-muted); font-size: 0.9rem;">Chưa có video nào hoàn thành.</p></div>
                 </div>
 
-                <!-- VIEW 5: HELP & DOCS -->
-                <div class="view-panel" id="viewHelp">
-                    <div class="view-header">
-                        <div class="view-header-title">
-                            <h2>❓ Documentation & Operational Guidelines</h2>
-                            <p>Hướng dẫn vận hành chuẩn hóa 100% Online của History Snooze</p>
-                        </div>
-                    </div>
-
-                    <div class="glass-card" style="display:flex; flex-direction:column; gap: 1.25rem;">
-                        <div>
-                            <h3 style="color: var(--primary-blue); font-size: 1.1rem; margin-bottom: 0.5rem;">🛡️ Hệ Thống 7 Gatekeepers</h3>
-                            <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.6;">
-                                • <strong>GK1</strong>: Ideation & Lọc Blacklist | <strong>GK2</strong>: Kịch bản 750-900 từ, ép 100% chữ số thành chữ.<br>
-                                • <strong>GK3</strong>: Phân bổ 3-5 visual beats/part | <strong>GK4</strong>: Voiceover RMS &gt; 0.003, không file câm, tự động retry.<br>
-                                • <strong>GK5</strong>: Ảnh 4K 16:9 &gt; 30KB | <strong>GK6</strong>: Đủ 15 Part Audio + &ge;15 Keyframes trước khi dựng.<br>
-                                • <strong>GK7</strong>: Master Video MP4 thời lượng &gt; 0s, dung lượng &gt; 10MB.
-                            </p>
-                        </div>
-                        <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
-                            <h3 style="color: var(--primary-blue); font-size: 1.1rem; margin-bottom: 0.5rem;">🖼️ 3 Chế Độ Keyframe (Hybrid Mode)</h3>
-                            <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.6;">
-                                1. <strong>Tự động 100%</strong>: VPS điều khiển Chrome ImageFX gõ prompt và tải về.<br>
-                                2. <strong>Thủ công (Curated Art)</strong>: Tự tạo trên Midjourney/Flux, đặt tên <code>beat_PXX_BYY.jpg</code> rồi nạp vào GDrive <code>keyframes/</code>.<br>
-                                3. <strong>Lai ghép (Hybrid Skip)</strong>: Tự làm một vài ảnh đẹp, VPS sẽ tự động bỏ qua và chỉ sinh bù ảnh thiếu!
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- TOP VIEW 1: LLM HEALTH -->
                 <div class="view-panel" id="viewLLM">
                     <div class="view-header">
                         <div class="view-header-title">
                             <h2>🤖 Multi-Tier AI Health Monitor</h2>
-                            <p>Kiểm tra tình trạng hoạt động và độ trễ của 10 AI API Keys & Cloudflare Workers AI</p>
+                            <p>Kiểm tra tình trạng hoạt động của 11 AI API Keys</p>
                         </div>
                         <button class="btn-action btn-primary" onclick="checkAllLLMs()">⚡ Check All Keys Now</button>
                     </div>
-
-                    <div class="llm-grid" id="llmGridContainer">
-                        <!-- Rendered by JS -->
-                    </div>
+                    <div class="llm-grid" id="llmGridContainer"></div>
                 </div>
 
-                <!-- TOP VIEW 2: QUOTAS & USAGE -->
                 <div class="view-panel" id="viewQuotas">
                     <div class="view-header">
                         <div class="view-header-title">
@@ -1717,90 +1647,12 @@ function getDashboardHTML(sheetId) {
                             <p>Tài nguyên đám mây và hạn mức tính toán thời gian thực</p>
                         </div>
                     </div>
-
-                    <div class="quotas-grid" id="quotasContainer">
-                        <div class="quota-card">
-                            <span style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;">CLOUDFLARE WORKERS AI</span>
-                            <div class="quota-val">8,550 / 10,000</div>
-                            <span style="color: var(--success-green); font-size: 0.8rem;">Daily Free Neurons Remaining</span>
-                            <div class="quota-bar"><div class="quota-bar-fill" style="width: 85%;"></div></div>
-                        </div>
-                        <div class="quota-card">
-                            <span style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;">GITHUB ACTIONS COMPUTE</span>
-                            <div class="quota-val">Unlimited</div>
-                            <span style="color: var(--primary-blue); font-size: 0.8rem;">15 Concurrent Matrix Runners</span>
-                        </div>
-                        <div class="quota-card">
-                            <span style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;">GOOGLE DRIVE STORAGE</span>
-                            <div class="quota-val">Zero-Sprawl</div>
-                            <span style="color: var(--accent-gold); font-size: 0.8rem;">Centralized 1UGkrUFQ62ghj1Lquy1HVsKIYR9nO60zf</span>
-                        </div>
+                    <div class="quotas-grid">
+                        <div class="quota-card"><span style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;">CLOUDFLARE WORKERS AI</span><div class="quota-val">8,550 / 10,000</div><div class="quota-bar"><div class="quota-bar-fill" style="width: 85%;"></div></div></div>
+                        <div class="quota-card"><span style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;">GITHUB ACTIONS COMPUTE</span><div class="quota-val">Unlimited</div><span style="color: var(--primary-blue); font-size: 0.8rem;">15 Concurrent Matrix Runners</span></div>
                     </div>
                 </div>
             </main>
-        </div>
-    </div>
-
-    <!-- Edit Title Modal -->
-    <div class="modal-backdrop" id="modalEditTitleBackdrop">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>✏️ Edit YouTube Title</h3>
-                <button class="modal-close" onclick="closeEditModal()">&times;</button>
-            </div>
-            <div class="form-group">
-                <label>Historical Figure:</label>
-                <input type="text" id="editCharName" class="input-text" readonly style="opacity: 0.7;">
-            </div>
-            <div class="form-group">
-                <label>YouTube Title:</label>
-                <input type="text" id="editTitleInput" class="input-text">
-            </div>
-            <div style="display:flex; justify-content:flex-end; gap: 0.75rem; margin-top: 1.5rem;">
-                <button class="btn-action btn-icon" onclick="closeEditModal()">Cancel</button>
-                <button class="btn-action btn-primary" onclick="saveEditedTitle()">Save Title</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Trigger Modal -->
-    <div class="modal-backdrop" id="modalBackdrop">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>⚙️ Trigger Production Workflow</h3>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
-            </div>
-            <div class="form-group">
-                <label>Character:</label>
-                <input type="text" id="modalInputChar" class="input-text">
-            </div>
-            <div class="form-group">
-                <label>Select Action:</label>
-                <select id="modalSelectCommand" class="input-text">
-                    <option value="/start">📜 /start (Start / Restart Scripting)</option>
-                    <option value="/mediagen">🎙️ /mediagen (Start / Restart Voiceover 15-Matrix)</option>
-                    <option value="/imagegen">🖼️ /imagegen (Start / Restart VPS ImageFX 4K)</option>
-                    <option value="/assemble">🎬 /assemble (Start / Restart Video Assembly)</option>
-                    <option value="/cancel" style="color: #ef4444; font-weight:bold;">🛑 /cancel (Emergency Stop Workflow)</option>
-                </select>
-            </div>
-            <div style="display:flex; justify-content:flex-end; gap: 0.75rem; margin-top: 1.5rem;">
-                <button class="btn-action btn-icon" onclick="closeModal()">Cancel</button>
-                <button class="btn-action btn-primary" onclick="submitGatewayCommand()">Submit</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Video Player Modal -->
-    <div class="modal-backdrop" id="modalVideoBackdrop">
-        <div class="modal" style="max-width: 800px; padding: 1.5rem;">
-            <div class="modal-header">
-                <h3 id="videoModalTitle">🎬 Watching Master Video</h3>
-                <button class="modal-close" onclick="closeVideoModal()">&times;</button>
-            </div>
-            <div id="videoPlayerContainer" style="width: 100%; height: 420px; background: #000; border-radius: 12px; display:flex; align-items:center; justify-content:center;">
-                <!-- Embedded Player or Drive Link -->
-            </div>
         </div>
     </div>
 
@@ -1809,142 +1661,86 @@ function getDashboardHTML(sheetId) {
         const MASTER_PASS = "HLHana@292710$";
         const AUTH_KEY = "hs_dashboard_auth_token";
         const SPREADSHEET_ID = "${sheetId}";
-        const PIPELINE_CSV_URL = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID + "/gviz/tq?tqx=out:json&sheet=Pipeline";
-        const BLACKLIST_CSV_URL = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID + "/gviz/tq?tqx=out:json&sheet=Blacklist";
 
         let pipelineData = [];
-        let blacklistData = [];
         let selectedFigure = null;
         let selectedTitle = null;
         let editingItem = null;
 
-        function cleanInput(val) {
-            return (val || "").toString().trim().replace(/[\\u200B-\\u200D\\uFEFF]/g, "");
-        }
-
-        function isAuthorized(token) {
-            const clean = cleanInput(token);
-            if (!clean) return false;
-            return VALID_PASSWORDS.some(p => p.toLowerCase() === clean.toLowerCase()) || clean === "1" || clean === "true";
-        }
+        function cleanInput(val) { return (val || "").toString().trim().replace(/[\\u200B-\\u200D\\uFEFF]/g, ""); }
+        function isAuthorized(token) { const clean = cleanInput(token); if (!clean) return false; return VALID_PASSWORDS.some(p => p.toLowerCase() === clean.toLowerCase()) || clean === "1" || clean === "true"; }
 
         document.addEventListener("DOMContentLoaded", () => {
             const savedToken = localStorage.getItem(AUTH_KEY) || sessionStorage.getItem(AUTH_KEY);
-            if (isAuthorized(savedToken)) {
-                unlockDashboard();
-            } else {
-                document.getElementById("loginOverlay").style.display = "flex";
-                document.getElementById("appContainer").style.display = "none";
-            }
+            if (isAuthorized(savedToken)) { unlockDashboard(); } else { document.getElementById("loginOverlay").style.display = "flex"; }
         });
 
-        function togglePassView() {
-            const passInput = document.getElementById("inputPass");
-            const eyeBtn = document.getElementById("eyeBtn");
-            if (passInput.type === "password") {
-                passInput.type = "text";
-                eyeBtn.innerText = "🙈";
-            } else {
-                passInput.type = "password";
-                eyeBtn.innerText = "👁️";
-            }
-        }
-
+        function togglePassView() { const passInput = document.getElementById("inputPass"); passInput.type = (passInput.type === "password" ? "text" : "password"); }
         function checkPassword() {
             const pass = cleanInput(document.getElementById("inputPass").value);
-            const remember = document.getElementById("checkRemember").checked;
-            const errDiv = document.getElementById("loginErr");
-
-            if (isAuthorized(pass)) {
-                errDiv.style.display = "none";
-                if (remember) localStorage.setItem(AUTH_KEY, MASTER_PASS);
-                else sessionStorage.setItem(AUTH_KEY, MASTER_PASS);
-                unlockDashboard();
-            } else {
-                errDiv.style.display = "block";
-            }
+            if (isAuthorized(pass)) { localStorage.setItem(AUTH_KEY, MASTER_PASS); unlockDashboard(); } else { document.getElementById("loginErr").style.display = "block"; }
         }
+        function unlockDashboard() { document.getElementById("loginOverlay").style.display = "none"; document.getElementById("appContainer").style.display = "flex"; fetchPipelineData(); }
+        function logoutSystem() { localStorage.removeItem(AUTH_KEY); sessionStorage.removeItem(AUTH_KEY); window.location.reload(); }
 
-        function unlockDashboard() {
-            document.getElementById("loginOverlay").style.display = "none";
-            document.getElementById("appContainer").style.display = "flex";
-            fetchPipelineData();
-            initLLMGrid();
-        }
-
-        function logoutSystem() {
-            localStorage.removeItem(AUTH_KEY);
-            sessionStorage.removeItem(AUTH_KEY);
-            window.location.reload();
-        }
-
-        /* Navigation Switching */
         function switchLeftNav(tabName) {
             document.querySelectorAll(".nav-item").forEach(btn => btn.classList.remove("active"));
-            document.querySelectorAll(".top-tab-btn").forEach(btn => btn.classList.remove("active"));
             document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
-
             const targetBtn = document.getElementById("navBtn" + tabName.charAt(0).toUpperCase() + tabName.slice(1));
             if (targetBtn) targetBtn.classList.add("active");
-
-            const targetView = document.getElementById("view" + tabName.charAt(0).toUpperCase() + tabName.slice(1));
-            if (targetView) targetView.classList.add("active");
+            document.getElementById("view" + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add("active");
         }
 
-        function switchTopTab(tabName) {
-            document.querySelectorAll(".nav-item").forEach(btn => btn.classList.remove("active"));
-            document.querySelectorAll(".top-tab-btn").forEach(btn => btn.classList.remove("active"));
-            document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
-
-            if (tabName === "llm") {
-                document.getElementById("topBtnLLM").classList.add("active");
-                document.getElementById("viewLLM").classList.add("active");
-            } else if (tabName === "quotas") {
-                document.getElementById("topBtnQuotas").classList.add("active");
-                document.getElementById("viewQuotas").classList.add("active");
-            }
-        }
-
-        /* Data Fetching */
         async function fetchPipelineData() {
             const connText = document.getElementById("connText");
             connText.innerText = "Syncing...";
             try {
-                const res = await fetch(PIPELINE_CSV_URL);
-                const txt = await res.text();
-                const json = JSON.parse(txt.substring(txt.indexOf("{"), txt.lastIndexOf("}") + 1));
-                const rows = json.table.rows;
-                pipelineData = [];
-
-                rows.forEach((r, idx) => {
-                    if (idx === 0) return;
-                    const c = r.c;
-                    if (!c || !c[1] || !c[1].v) return;
-                    const item = {
-                        id: c[0] ? String(c[0].v) : "id_" + idx,
-                        character: c[1] ? String(c[1].v).trim() : "",
-                        title: c[2] ? String(c[2].v).trim() : "",
-                        status: c[3] ? String(c[3].v).trim() : "Proposed",
-                        gdrive: c[4] ? String(c[4].v) : "",
-                        outline: c[5] ? String(c[5].v) : "",
-                        script: c[6] ? String(c[6].v) : "",
-                        voiceover: c[7] ? String(c[7].v) : "",
-                        image: c[8] ? String(c[8].v) : "",
-                        video: c[9] ? String(c[9].v) : "",
-                        updatedAt: c[10] ? String(c[10].v) : ""
-                    };
-                    if (item.character !== "Historical_Figure") pipelineData.push(item);
-                });
-
-                renderAllViews();
-                connText.innerText = "Connected (" + pipelineData.length + ")";
+                const res = await fetch("/api/pipeline/data");
+                const result = await res.json();
+                if (result.status === "SUCCESS" && Array.isArray(result.data)) {
+                    pipelineData = result.data;
+                    renderAllViews(result.kpis);
+                    connText.innerText = "Connected (" + pipelineData.length + " projects)";
+                    return;
+                }
+                throw new Error("Proxy format invalid");
             } catch (err) {
-                console.error("Fetch error:", err);
-                connText.innerText = "Connection Error";
+                console.warn("Proxy fallback to gviz:", err);
+                const fallbackUrl = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID + "/gviz/tq?tqx=out:json&sheet=Pipeline";
+                const fRes = await fetch(fallbackUrl);
+                const txt = await fRes.text();
+                const jsonMatch = txt.match(/google\\.visualization\\.Query\\.setResponse\\(([\\s\\S]*)\\);/);
+                if (jsonMatch && jsonMatch[1]) {
+                    const parsed = JSON.parse(jsonMatch[1]);
+                    const rows = parsed.table ? parsed.table.rows : [];
+                    pipelineData = [];
+                    rows.forEach((r, idx) => {
+                        if (idx === 0) return;
+                        const c = r.c;
+                        if (!c || !c[1] || !c[1].v) return;
+                        const charName = String(c[1].v).trim();
+                        if (charName === "Historical_Figure") return;
+                        pipelineData.push({ 
+                            id: c[0] && c[0].v ? String(c[0].v).trim() : "id_" + idx, 
+                            character: charName, 
+                            title: c[2] && c[2].v ? String(c[2].v).trim() : "", 
+                            status: c[3] && c[3].v ? String(c[3].v).trim() : "Proposed",
+                            gdrive: c[4] && c[4].v ? String(c[4].v) : "",
+                            outline: c[5] && c[5].v ? String(c[5].v) : "",
+                            script: c[6] && c[6].v ? String(c[6].v) : "",
+                            voiceover: c[7] && c[7].v ? String(c[7].v) : "",
+                            image: c[8] && c[8].v ? String(c[8].v) : "",
+                            video: c[9] && c[9].v ? String(c[9].v) : "",
+                            updatedAt: c[10] ? (c[10].f || c[10].v || "") : ""
+                        });
+                    });
+                    renderAllViews();
+                    connText.innerText = "Connected (" + pipelineData.length + " projects)";
+                }
             }
         }
 
-        function renderAllViews() {
+        function renderAllViews(serverKpis) {
             const ideas = pipelineData.filter(d => d.status === "Proposed" || d.status === "Pending");
             const inProgress = pipelineData.filter(d => d.status !== "Proposed" && d.status !== "Pending" && d.status !== "Done");
             const doneVideos = pipelineData.filter(d => d.status === "Done");
@@ -1953,22 +1749,47 @@ function getDashboardHTML(sheetId) {
             document.getElementById("badgePipeline").innerText = inProgress.length;
             document.getElementById("badgeVideos").innerText = doneVideos.length;
 
+            let scriptCount = 0, voiceCount = 0, readyCount = 0;
+            pipelineData.forEach(d => { 
+                const s = (d.status || "").toLowerCase(); 
+                if (s.includes("script")) scriptCount++; 
+                if (s.includes("voice")) voiceCount++; 
+                if (s.includes("ready")) readyCount++; 
+            });
+
+            document.getElementById("kpiProposed").innerText = serverKpis ? serverKpis.proposed : ideas.length;
+            document.getElementById("kpiScript").innerText = serverKpis ? serverKpis.script : scriptCount;
+            document.getElementById("kpiVoiceover").innerText = serverKpis ? serverKpis.voice : voiceCount;
+            document.getElementById("kpiReady").innerText = serverKpis ? serverKpis.ready : readyCount;
+            document.getElementById("kpiDone").innerText = serverKpis ? serverKpis.done : doneVideos.length;
+
+            renderDashboardTable(pipelineData.slice(0, 8));
             renderIdeasTable(ideas);
             renderPipelineTable(inProgress);
             renderVideosGrid(doneVideos);
         }
 
-        /* Render Ideas (Tab 2) */
+        function renderDashboardTable(items) {
+            const tbody = document.getElementById("dashboardTbody");
+            if (items.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; padding: 2rem; color: var(--text-muted);'>No projects yet.</td></tr>";
+                return;
+            }
+            tbody.innerHTML = items.map(item => {
+                const s = (item.status || "").toLowerCase();
+                const statusClass = s.includes("script") ? "status-scripting" : (s.includes("voice") ? "status-voicing" : (s.includes("ready") ? "status-ready" : (s.includes("done") ? "status-done" : "status-proposed")));
+                return \`<tr><td><code>\${escapeHtml(item.id)}</code></td><td><strong>\${escapeHtml(item.character)}</strong></td><td><div style="max-width:320px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">\${escapeHtml(item.title)}</div></td><td><span class="status-pill \${statusClass}">\${escapeHtml(item.status)}</span></td><td><button class="btn-action btn-icon" style="padding: 4px 8px; font-size: 0.75rem;" onclick="openModalForChar('\${encodeURIComponent(item.character)}')">⚙️ Actions</button></td></tr>\`;
+            }).join("");
+        }
+
         function renderIdeasTable(ideas) {
             const tbody = document.getElementById("ideasTbody");
-            tbody.innerHTML = "";
             if (ideas.length === 0) {
                 tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; padding: 2rem; color: var(--text-muted);'>No ideas in backlog. Generate some in Ideation Studio!</td></tr>";
                 return;
             }
-            ideas.forEach(item => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = \`
+            tbody.innerHTML = ideas.map(item => \`
+                <tr>
                     <td><code>\${escapeHtml(item.id)}</code></td>
                     <td><strong>\${escapeHtml(item.character)}</strong></td>
                     <td><div style="max-width: 320px; font-size: 0.85rem;">\${escapeHtml(item.title)}</div></td>
@@ -1980,69 +1801,61 @@ function getDashboardHTML(sheetId) {
                             <button class="btn-action btn-danger" style="padding: 4px 10px; font-size: 0.75rem;" onclick="deleteIdea('\${encodeURIComponent(item.id)}', '\${encodeURIComponent(item.character)}')">🗑️ Delete</button>
                         </div>
                     </td>
-                \`;
-                tbody.appendChild(tr);
-            });
+                </tr>
+            \`).join("");
         }
 
-        /* Render Pipeline (Tab 3) */
         function renderPipelineTable(items) {
             const tbody = document.getElementById("pipelineTbody");
-            tbody.innerHTML = "";
             if (items.length === 0) {
                 tbody.innerHTML = "<tr><td colspan='6' style='text-align:center; padding: 2rem; color: var(--text-muted);'>No active production in progress. Start an idea from Backlog!</td></tr>";
                 return;
             }
-            items.forEach(item => {
-                const tr = document.createElement("tr");
+            tbody.innerHTML = items.map(item => {
                 const s = (item.status || "").toLowerCase();
                 const statusClass = s.includes("script") ? "status-scripting" : (s.includes("voice") ? "status-voicing" : (s.includes("ready") ? "status-ready" : "status-proposed"));
-                
                 const isScriptDone = item.status !== "Script" && item.status !== "Proposed";
                 const isAudioDone = item.status === "Ready" || item.status === "Producing";
                 const isImgDone = item.image && item.image.startsWith("http");
 
-                tr.innerHTML = \`
-                    <td><code>\${escapeHtml(item.id)}</code></td>
-                    <td><strong>\${escapeHtml(item.character)}</strong></td>
-                    <td><span class="status-pill \${statusClass}">\${escapeHtml(item.status)}</span></td>
-                    <td>
-                        <div class="step-progress-row">
-                            <span class="step-node \${isScriptDone ? 'completed' : 'active'}">📜 Script</span>
-                            <span>➔</span>
-                            <span class="step-node \${isAudioDone ? 'completed' : (s.includes('voice') ? 'active' : '')}">🎙️ Audio</span>
-                            <span>➔</span>
-                            <span class="step-node \${isImgDone ? 'completed' : (item.image === 'Imaging' ? 'active' : '')}">🖼️ Img</span>
-                            <span>➔</span>
-                            <span class="step-node \${item.status === 'Producing' ? 'active' : ''}">🎬 Video</span>
-                        </div>
-                    </td>
-                    <td>
-                        <div style="display:flex; gap: 0.4rem;">
-                            \${item.gdrive ? \`<a href="\${escapeHtml(item.gdrive)}" target="_blank" class="btn-icon" style="padding: 2px 8px; font-size: 0.72rem;">📁 Drive</a>\` : ''}
-                            \${item.outline ? \`<a href="\${escapeHtml(item.outline)}" target="_blank" class="btn-icon" style="padding: 2px 8px; font-size: 0.72rem;">📄 Doc</a>\` : ''}
-                        </div>
-                    </td>
-                    <td>
-                        <button class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;" onclick="openModalForChar('\${encodeURIComponent(item.character)}')">⚙️ Trigger</button>
-                    </td>
+                return \`
+                    <tr>
+                        <td><code>\${escapeHtml(item.id)}</code></td>
+                        <td><strong>\${escapeHtml(item.character)}</strong></td>
+                        <td><span class="status-pill \${statusClass}">\${escapeHtml(item.status)}</span></td>
+                        <td>
+                            <div class="step-progress-row">
+                                <span class="step-node \${isScriptDone ? 'completed' : 'active'}">📜 Script</span>
+                                <span>➔</span>
+                                <span class="step-node \${isAudioDone ? 'completed' : (s.includes('voice') ? 'active' : '')}">🎙️ Audio</span>
+                                <span>➔</span>
+                                <span class="step-node \${isImgDone ? 'completed' : (item.image === 'Imaging' ? 'active' : '')}">🖼️ Img</span>
+                                <span>➔</span>
+                                <span class="step-node \${item.status === 'Producing' ? 'active' : ''}">🎬 Video</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display:flex; gap: 0.4rem;">
+                                \${item.gdrive ? \`<a href="\${escapeHtml(item.gdrive)}" target="_blank" class="btn-icon" style="padding: 2px 8px; font-size: 0.72rem;">📁 Drive</a>\` : ''}
+                                \${item.outline ? \`<a href="\${escapeHtml(item.outline)}" target="_blank" class="btn-icon" style="padding: 2px 8px; font-size: 0.72rem;">📄 Doc</a>\` : ''}
+                            </div>
+                        </td>
+                        <td>
+                            <button class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;" onclick="openModalForChar('\${encodeURIComponent(item.character)}')">⚙️ Trigger</button>
+                        </td>
+                    </tr>
                 \`;
-                tbody.appendChild(tr);
-            });
+            }).join("");
         }
 
-        /* Render Videos (Tab 4) */
         function renderVideosGrid(videos) {
             const grid = document.getElementById("videoGridContainer");
-            grid.innerHTML = "";
             if (videos.length === 0) {
                 grid.innerHTML = "<p style='color: var(--text-muted); font-size: 0.9rem;'>No completed videos yet.</p>";
                 return;
             }
-            videos.forEach(v => {
-                const card = document.createElement("div");
-                card.className = "video-card";
-                card.innerHTML = \`
+            grid.innerHTML = videos.map(v => \`
+                <div class="video-card">
                     <div class="video-thumb" onclick="openVideoPlayer('\${encodeURIComponent(v.title)}', '\${encodeURIComponent(v.video)}')">
                         <div class="video-play-btn">▶</div>
                         <div class="video-dur-tag">~90m (4K)</div>
@@ -2052,14 +1865,13 @@ function getDashboardHTML(sheetId) {
                             <h3>\${escapeHtml(v.character)}</h3>
                             <p>\${escapeHtml(v.title)}</p>
                         </div>
-                        <div style="display:flex; gap: 0.5rem;">
+                        <div style="display:flex; gap: 0.5rem; margin-top: 1rem;">
                             <button class="btn-action btn-primary" style="flex:1; padding: 6px; font-size: 0.78rem;" onclick="openVideoPlayer('\${encodeURIComponent(v.title)}', '\${encodeURIComponent(v.video)}')">▶️ Watch Video</button>
                             <a href="\${escapeHtml(v.video)}" target="_blank" class="btn-action btn-icon" style="padding: 6px 10px; font-size: 0.78rem;">📁 Drive</a>
                         </div>
                     </div>
-                \`;
-                grid.appendChild(card);
-            });
+                </div>
+            \`).join("");
         }
 
         /* IDEATION FLOW */
@@ -2068,7 +1880,6 @@ function getDashboardHTML(sheetId) {
             if (!kw) return alert("Please enter a keyword.");
             const container = document.getElementById("figuresListContainer");
             container.innerHTML = "<p style='color: var(--primary-blue); font-size: 0.85rem;'>✨ AI is researching historical figures for: " + escapeHtml(kw) + "...</p>";
-            
             try {
                 const res = await fetch("/api/ideation/suggest-figures", {
                     method: "POST",
@@ -2098,10 +1909,8 @@ function getDashboardHTML(sheetId) {
             document.querySelectorAll(".figure-card").forEach(c => c.classList.remove("selected"));
             if (element) element.classList.add("selected");
             document.getElementById("selectedFigureInput").value = charName;
-
             const tContainer = document.getElementById("titlesListContainer");
             tContainer.innerHTML = "<p style='color: var(--primary-blue); font-size: 0.85rem;'>✨ Generating 5 Sleep History Titles for " + escapeHtml(charName) + "...</p>";
-
             try {
                 const res = await fetch("/api/ideation/suggest-titles", {
                     method: "POST",
@@ -2146,7 +1955,6 @@ function getDashboardHTML(sheetId) {
             switchLeftNav("ideas");
         }
 
-        /* IDEA ACTIONS (Start / Edit / Delete) */
         async function startIdeaProduction(encodedChar) {
             const char = decodeURIComponent(encodedChar);
             if (!confirm("🚀 Start full production pipeline for '" + char + "'?")) return;
@@ -2175,10 +1983,7 @@ function getDashboardHTML(sheetId) {
             document.getElementById("editTitleInput").value = editingItem.title;
             document.getElementById("modalEditTitleBackdrop").classList.add("active");
         }
-
-        function closeEditModal() {
-            document.getElementById("modalEditTitleBackdrop").classList.remove("active");
-        }
+        function closeEditModal() { document.getElementById("modalEditTitleBackdrop").classList.remove("active"); }
 
         function saveEditedTitle() {
             const newTitle = document.getElementById("editTitleInput").value.trim();
@@ -2217,22 +2022,12 @@ function getDashboardHTML(sheetId) {
                 { name: "Agnes AI #4", type: "Agnes 2.5 Flash", status: "ONLINE", latency: "260ms" },
                 { name: "Cloudflare Workers AI", type: "DeepSeek R1 Distill", status: "ONLINE", latency: "95ms" }
             ];
-
-            defaultKeys.forEach(k => {
-                const div = document.createElement("div");
-                div.className = "llm-card";
-                div.innerHTML = \`
-                    <div class="llm-card-header">
-                        <span class="llm-title">\${k.name}</span>
-                        <span class="llm-tier">\${k.type}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="llm-status online">● \${k.status}</span>
-                        <span style="font-size: 0.78rem; color: var(--text-muted);">\${k.latency}</span>
-                    </div>
-                \`;
-                container.appendChild(div);
-            });
+            container.innerHTML = defaultKeys.map(k => \`
+                <div class="llm-card">
+                    <div class="llm-card-header"><span class="llm-title">\${k.name}</span><span class="llm-tier">\${k.type}</span></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;"><span class="llm-status online">● \${k.status}</span><span style="font-size: 0.78rem; color: var(--text-muted);">\${k.latency}</span></div>
+                </div>
+            \`).join("");
         }
 
         async function checkAllLLMs() {
@@ -2242,37 +2037,25 @@ function getDashboardHTML(sheetId) {
                 const res = await fetch("/api/health/check-llms", { method: "POST" });
                 const data = await res.json();
                 if (data.status === "SUCCESS" && data.results) {
-                    container.innerHTML = "";
-                    data.results.forEach(k => {
-                        const div = document.createElement("div");
-                        div.className = "llm-card";
+                    container.innerHTML = data.results.map(k => {
                         const isOnline = k.status === "ONLINE";
-                        div.innerHTML = \`
-                            <div class="llm-card-header">
-                                <span class="llm-title">\${escapeHtml(k.name)}</span>
-                                <span class="llm-tier">\${escapeHtml(k.type)}</span>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span class="llm-status \${isOnline ? 'online' : 'offline'}">● \${escapeHtml(k.status)}</span>
-                                <span style="font-size: 0.78rem; color: var(--text-muted);">\${k.latency_ms ? k.latency_ms + 'ms' : 'N/A'}</span>
+                        return \`
+                            <div class="llm-card">
+                                <div class="llm-card-header"><span class="llm-title">\${escapeHtml(k.name)}</span><span class="llm-tier">\${escapeHtml(k.type)}</span></div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;"><span class="llm-status \${isOnline ? 'online' : 'offline'}">● \${escapeHtml(k.status)}</span><span style="font-size: 0.78rem; color: var(--text-muted);">\${k.latency_ms ? k.latency_ms + 'ms' : 'N/A'}</span></div>
                             </div>
                         \`;
-                        container.appendChild(div);
-                    });
+                    }).join("");
                 }
-            } catch (e) {
-                initLLMGrid();
-            }
+            } catch (e) { initLLMGrid(); }
         }
 
-        /* MODAL UTILITIES */
         function openModalForChar(encodedChar) {
             document.getElementById("modalInputChar").value = decodeURIComponent(encodedChar);
             document.getElementById("modalBackdrop").classList.add("active");
         }
-        function closeModal() {
-            document.getElementById("modalBackdrop").classList.remove("active");
-        }
+        function closeModal() { document.getElementById("modalBackdrop").classList.remove("active"); }
+
         async function submitGatewayCommand() {
             const char = document.getElementById("modalInputChar").value.trim();
             const cmd = document.getElementById("modalSelectCommand").value;
@@ -2286,9 +2069,29 @@ function getDashboardHTML(sheetId) {
                 });
                 const data = await res.json();
                 alert(data.message || "Command sent!");
-            } catch (e) {
-                alert("Trigger sent: " + e.message);
+            } catch (e) { alert("Trigger sent: " + e.message); }
+        }
+
+        function openVideoPlayer(encodedTitle, encodedUrl) {
+            const title = decodeURIComponent(encodedTitle);
+            const url = decodeURIComponent(encodedUrl);
+            document.getElementById("videoModalTitle").innerText = "🎬 " + title;
+            const container = document.getElementById("videoPlayerContainer");
+            if (url && url.startsWith("http")) {
+                container.innerHTML = \`<iframe src="\${escapeHtml(url.replace('/view', '/preview'))}" width="100%" height="100%" frameborder="0" allow="autoplay; fullscreen" style="border-radius:12px;"></iframe>\`;
+            } else {
+                container.innerHTML = "<p style='color: var(--text-muted);'>No video URL available.</p>";
             }
+            document.getElementById("modalVideoBackdrop").classList.add("active");
+        }
+        function closeVideoModal() {
+            document.getElementById("videoPlayerContainer").innerHTML = "";
+            document.getElementById("modalVideoBackdrop").classList.remove("active");
+        }
+
+        function escapeHtml(str) {
+            if (!str) return "";
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
     </script>
 </body>
