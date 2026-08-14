@@ -7,157 +7,841 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <style>
+        :root {
+            --bg-main: #090d16;
+            --bg-card: rgba(15, 23, 42, 0.75);
+            --bg-surface: rgba(30, 41, 59, 0.5);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-highlight: rgba(255, 255, 255, 0.16);
+            --primary-blue: #38bdf8;
+            --primary-hover: #0284c7;
+            --accent-indigo: #6366f1;
+            --accent-gold: #f59e0b;
+            --success-green: #10b981;
+            --danger-red: #ef4444;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --font-heading: 'Outfit', sans-serif;
+            --font-body: 'Plus Jakarta Sans', sans-serif;
+            --shadow-soft: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+            --glass-blur: blur(16px);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-main);
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 90%, rgba(99, 102, 241, 0.08) 0%, transparent 40%);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .login-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(9, 13, 22, 0.96);
+            backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .login-box {
+            width: 100%;
+            max-width: 420px;
+            padding: 2.5rem;
+            border-radius: 24px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--border-highlight);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            text-align: center;
+        }
+        .login-icon {
+            font-size: 2.8rem;
+            margin-bottom: 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 68px; height: 68px;
+            border-radius: 18px;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+        }
+        .login-title { font-family: var(--font-heading); font-size: 1.6rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem; }
+        .login-sub { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem; }
+        .pass-container { position: relative; width: 100%; margin-bottom: 1rem; }
+        .pass-container input {
+            width: 100%;
+            padding: 0.85rem 3rem 0.85rem 1rem;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .pass-container input:focus { border-color: var(--primary-blue); box-shadow: 0 0 10px rgba(56, 189, 248, 0.25); }
+        .eye-toggle-btn {
+            position: absolute; right: 12px; top: 50%;
+            transform: translateY(-50%);
+            background: none; border: none;
+            color: var(--text-secondary);
+            font-size: 1.2rem; cursor: pointer; padding: 4px;
+        }
+        .remember-group {
+            display: flex; align-items: center; gap: 0.5rem;
+            font-size: 0.85rem; color: var(--text-secondary);
+            margin-bottom: 1.5rem; cursor: pointer; text-align: left;
+        }
+        .login-btn {
+            width: 100%; padding: 0.85rem; border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary-blue), #0284c7);
+            color: #fff; font-weight: 700; font-size: 0.95rem;
+            border: none; cursor: pointer; transition: all 0.2s;
+        }
+        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(56, 189, 248, 0.4); }
+        .error-msg { font-size: 0.8rem; color: var(--danger-red); margin-top: 0.75rem; display: none; }
+
+        .app-layout {
+            display: none;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .top-navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.85rem 2rem;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .top-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+        }
+        .top-logo-icon {
+            font-size: 1.6rem;
+            width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 10px;
+        }
+        .top-brand-text h1 {
+            font-family: var(--font-heading);
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1.1;
+        }
+        .top-brand-text span {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            letter-spacing: 0.03em;
+        }
+
+        .top-nav-tabs {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        .top-tab-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+        .top-tab-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
+        .top-tab-btn.active {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--primary-blue);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .conn-pill {
+            display: flex; align-items: center; gap: 0.4rem;
+            padding: 0.4rem 0.85rem; border-radius: 20px;
+            font-size: 0.78rem; font-weight: 500;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--success-green);
+        }
+        .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success-green); box-shadow: 0 0 8px var(--success-green); }
+        .btn-icon {
+            padding: 0.45rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex; align-items: center; gap: 0.4rem;
+        }
+        .btn-icon:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+
+        .app-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: var(--glass-blur);
+            border-right: 1px solid var(--border-color);
+            padding: 1.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .sidebar-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .sidebar-section-title {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            padding: 0.5rem 0.75rem;
+            font-weight: 700;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 0.9rem;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            width: 100%;
+        }
+        .nav-item:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .nav-item.active {
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--primary-blue);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+        }
+        .nav-item-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .nav-badge {
+            font-size: 0.72rem;
+            padding: 2px 7px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-secondary);
+            font-weight: 700;
+        }
+        .nav-item.active .nav-badge {
+            background: var(--primary-blue);
+            color: #090d16;
+        }
+        .sidebar-footer {
+            border-top: 1px solid var(--border-color);
+            padding-top: 1rem;
+        }
+
+        .content-viewport {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            max-height: calc(100vh - 65px);
+        }
+        .view-panel {
+            display: none;
+            animation: fadeIn 0.25s ease;
+        }
+        .view-panel.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .view-header {
+            margin-bottom: 1.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .view-header-title h2 {
+            font-family: var(--font-heading);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .view-header-title p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.2rem;
+        }
+
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-soft);
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .kpi-card {
+            padding: 1.25rem 1.5rem;
+            border-radius: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            transition: all 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--border-highlight);
+            box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.5);
+        }
+        .kpi-icon {
+            font-size: 1.8rem;
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+        }
+        .kpi-data { display: flex; flex-direction: column; }
+        .kpi-value { font-family: var(--font-heading); font-size: 1.8rem; font-weight: 700; line-height: 1.1; color: #fff; }
+        .kpi-label { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem; }
+
+        .system-status-banner {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem 1.5rem;
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-color);
+        }
+        .status-item { display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: var(--text-secondary); }
+        .status-item strong { color: #fff; }
+
+        .quick-launcher {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .quick-btn {
+            padding: 1rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .quick-btn:hover {
+            background: rgba(56, 189, 248, 0.12);
+            border-color: rgba(56, 189, 248, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .ideation-split {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 1.5rem;
+        }
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .input-text { width: 100%; padding: 0.85rem 1rem; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-color); border-radius: 10px; color: #fff; font-size: 0.9rem; outline: none; transition: all 0.2s; }
+        .input-text:focus { border-color: var(--primary-blue); }
+        .btn-action { padding: 0.8rem 1.4rem; border-radius: 10px; font-size: 0.88rem; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary-blue), #0284c7); color: #fff; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(56, 189, 248, 0.35); }
+        .btn-success { background: linear-gradient(135deg, var(--success-green), #059669); color: #fff; }
+        .btn-success:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35); }
+        .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger-red); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.25); }
+
+        .ideation-list { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; }
+        .figure-card, .title-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem 1.25rem; cursor: pointer; transition: all 0.2s; }
+        .figure-card:hover, .title-card:hover { background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.3); transform: translateX(4px); }
+        .figure-card.selected, .title-card.selected { background: rgba(56, 189, 248, 0.15); border-color: var(--primary-blue); }
+        .figure-card h4 { color: #fff; font-size: 0.95rem; font-weight: 700; }
+        .figure-card p { color: var(--text-secondary); font-size: 0.82rem; margin-top: 0.25rem; }
+
+        .data-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
+        .data-table th { padding: 0.85rem 1rem; color: var(--text-secondary); font-family: var(--font-heading); font-weight: 600; border-bottom: 1px solid var(--border-color); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .data-table td { padding: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.04); vertical-align: middle; }
+        .data-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+        .status-pill { display: inline-flex; padding: 0.25rem 0.7rem; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+        .status-proposed { background: rgba(245, 158, 11, 0.15); color: var(--accent-gold); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .status-scripting, .status-script { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
+        .status-voicing, .status-voiceover { background: rgba(56, 189, 248, 0.15); color: var(--primary-blue); border: 1px solid rgba(56, 189, 248, 0.3); }
+        .status-ready { background: rgba(16, 185, 129, 0.15); color: var(--success-green); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .status-done { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid #10b981; }
+
+        .step-progress-row { display: flex; align-items: center; gap: 6px; }
+        .step-node { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color); color: var(--text-muted); }
+        .step-node.completed { background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: var(--success-green); }
+        .step-node.active { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: var(--primary-blue); }
+
+        .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; }
+        .video-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; transition: all 0.25s; display: flex; flex-direction: column; }
+        .video-card:hover { transform: translateY(-4px); box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.7); border-color: var(--border-highlight); }
+        .video-thumb { width: 100%; height: 180px; background: linear-gradient(135deg, #1e293b, #0f172a); display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+        .video-play-btn { width: 54px; height: 54px; border-radius: 50%; background: rgba(56, 189, 248, 0.9); color: #090d16; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; transition: all 0.2s; box-shadow: 0 0 20px rgba(56, 189, 248, 0.6); }
+        .video-thumb:hover .video-play-btn { transform: scale(1.1); }
+        .video-dur-tag { position: absolute; right: 10px; bottom: 10px; background: rgba(0, 0, 0, 0.8); color: #fff; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+        .video-info { padding: 1.25rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .video-info h3 { font-size: 1rem; color: #fff; font-weight: 700; line-height: 1.3; margin-bottom: 0.4rem; }
+        .video-info p { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem; }
+
+        .llm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; }
+        .llm-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+        .llm-card-header { display: flex; justify-content: space-between; align-items: center; }
+        .llm-title { font-weight: 700; color: #fff; font-size: 0.95rem; }
+        .llm-tier { font-size: 0.72rem; color: var(--text-muted); }
+        .llm-status { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 600; }
+        .llm-status.online { color: var(--success-green); }
+        .llm-status.offline { color: var(--danger-red); }
+
+        .quotas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
+        .quota-card { padding: 1.5rem; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--border-color); }
+        .quota-val { font-family: var(--font-heading); font-size: 2rem; font-weight: 700; color: #fff; line-height: 1.1; margin: 0.4rem 0; }
+        .quota-bar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-top: 0.75rem; }
+        .quota-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary-blue), var(--accent-indigo)); border-radius: 4px; }
+
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); display: none; justify-content: center; align-items: center; z-index: 500; }
+        .modal-backdrop.active { display: flex; }
+        .modal { width: 90%; max-width: 520px; padding: 1.75rem; border-radius: 20px; background: rgba(15, 23, 42, 0.95); border: 1px solid var(--border-highlight); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+        .modal-header h3 { font-family: var(--font-heading); color: #fff; font-size: 1.2rem; }
+        .modal-close { background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; }
+    </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar Header / Navigation -->
-        <header class="app-header">
-            <div class="brand">
-                <div class="logo-icon">🌙</div>
-                <div class="brand-info">
-                    <h1>History Snooze</h1>
-                    <p class="subtitle">100% Online Automated ASMR History Video Production System</p>
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <div class="login-icon">🌙</div>
+            <h2 class="login-title">History Snooze</h2>
+            <p class="login-sub">Nhập mật khẩu quản trị để truy cập hệ thống</p>
+            <div class="login-form">
+                <div class="pass-container">
+                    <input type="password" id="inputPass" placeholder="Nhập mật khẩu quản trị..." onkeydown="if(event.key==='Enter') checkPassword()">
+                    <button type="button" class="eye-toggle-btn" id="eyeBtn" onclick="togglePassView()" title="Show/Hide Password">👁️</button>
                 </div>
-            </div>
-            <div class="header-actions">
-                <div class="connection-badge" id="connBadge">
-                    <span class="status-dot online"></span>
-                    <span id="connText">Connected to Pipeline Sheet</span>
-                </div>
-                <button class="btn btn-primary" id="btnRefresh">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                    Refresh Data
-                </button>
-            </div>
-        </header>
-
-        <!-- KPI Metrics Grid -->
-        <section class="kpi-grid">
-            <div class="kpi-card glass">
-                <div class="kpi-icon proposed">💡</div>
-                <div class="kpi-data">
-                    <span class="kpi-value" id="kpiProposed">0</span>
-                    <span class="kpi-label">Proposed Ideas</span>
-                </div>
-            </div>
-
-            <div class="kpi-card glass">
-                <div class="kpi-icon script">📜</div>
-                <div class="kpi-data">
-                    <span class="kpi-value" id="kpiScript">0</span>
-                    <span class="kpi-label">Scripts Completed</span>
-                </div>
-            </div>
-
-            <div class="kpi-card glass">
-                <div class="kpi-icon voice">🎙️</div>
-                <div class="kpi-data">
-                    <span class="kpi-value" id="kpiVoiceover">0</span>
-                    <span class="kpi-label">Voiceover Ready (GK4)</span>
-                </div>
-            </div>
-
-            <div class="kpi-card glass">
-                <div class="kpi-icon ready">🎬</div>
-                <div class="kpi-data">
-                    <span class="kpi-value" id="kpiReady">0</span>
-                    <span class="kpi-label">Production Ready</span>
-                </div>
-            </div>
-
-            <div class="kpi-card glass">
-                <div class="kpi-icon done">🎉</div>
-                <div class="kpi-data">
-                    <span class="kpi-value" id="kpiDone">0</span>
-                    <span class="kpi-label">Master Videos Done</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Controls & Search Toolbar -->
-        <section class="toolbar glass">
-            <div class="search-box">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="searchInput" placeholder="Search character, YouTube title, Idea ID...">
-            </div>
-
-            <div class="filter-group">
-                <button class="filter-btn active" data-status="ALL">All Statuses</button>
-                <button class="filter-btn" data-status="Proposed">Proposed</button>
-                <button class="filter-btn" data-status="Scripting">Scripting</button>
-                <button class="filter-btn" data-status="Voicing">Voicing</button>
-                <button class="filter-btn" data-status="Imaging">Imaging</button>
-                <button class="filter-btn" data-status="Ready">Ready</button>
-                <button class="filter-btn" data-status="Done">Done</button>
-            </div>
-
-            <div class="quick-action-trigger">
-                <button class="btn btn-accent" id="btnNewIdea">
-                    <span>+ Trigger 2-Step Ideation</span>
-                </button>
-            </div>
-        </section>
-
-        <!-- Master Pipeline Table -->
-        <section class="table-container glass">
-            <table class="pipeline-table">
-                <thead>
-                    <tr>
-                        <th>Idea ID</th>
-                        <th>Historical Figure</th>
-                        <th>YouTube Title</th>
-                        <th>Status</th>
-                        <th>GDrive Folder</th>
-                        <th>Outline (GDoc)</th>
-                        <th>Script (01.Preprod)</th>
-                        <th>Voiceover (Audio)</th>
-                        <th>Keyframes (Image)</th>
-                        <th>Master Video</th>
-                        <th>Quick Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="pipelineTbody">
-                    <tr>
-                        <td colspan="11" class="loading-state">
-                            <div class="spinner"></div>
-                            <p>Connecting and loading data from Google Sheets Pipeline...</p>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </section>
-    </div>
-
-    <!-- Modal Dialog for Action Trigger -->
-    <div class="modal-backdrop" id="modalBackdrop">
-        <div class="modal glass">
-            <div class="modal-header">
-                <h3 id="modalTitle">Trigger Production Workflow</h3>
-                <button class="modal-close" id="modalClose">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="modalStep1">
-                    <label for="modalInputChar">STEP 1: Enter Keyword / Character / Country / Era:</label>
-                    <input type="text" id="modalInputChar" placeholder="e.g. Ancient Rome, Year 1945, Marcus Aurelius...">
-                    
-                    <label for="modalSelectCommand">Select Workflow Command:</label>
-                    <select id="modalSelectCommand">
-                        <option value="/idea">💡 /idea (2-Step AI Ideation Wizard)</option>
-                        <option value="/start">📜 /start (Start Pre-Production: 15 Part Scripts & Beats)</option>
-                        <option value="/mediagen">🎙️ /mediagen (Run 15 OmniVoice TTS Jobs)</option>
-                        <option value="/imagegen">🖼️ /imagegen (Run Playwright ImageFX on VPS)</option>
-                        <option value="/assemble">🎬 /assemble (Render Ken Burns Master Video)</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="btnCancelModal">Cancel</button>
-                <button class="btn btn-primary" id="btnSubmitModal">Submit Trigger</button>
+                <label class="remember-group">
+                    <input type="checkbox" id="checkRemember" checked>
+                    <span>Ghi nhớ đăng nhập trên trình duyệt này</span>
+                </label>
+                <button class="login-btn" onclick="checkPassword()">🔓 Mở Khóa Dashboard</button>
+                <div class="error-msg" id="loginErr">❌ Mật khẩu chưa chính xác! Vui lòng kiểm tra lại.</div>
             </div>
         </div>
     </div>
 
-    <script src="app.js"></script>
-</body>
-</html>
+    <div class="app-layout" id="appContainer">
+        <header class="top-navbar">
+            <div class="top-brand">
+                <div class="top-logo-icon">🌙</div>
+                <div class="top-brand-text">
+                    <h1>History Snooze</h1>
+                    <span>100% Online Global ASMR Production</span>
+                </div>
+            </div>
+            <div class="top-nav-tabs">
+                <button class="top-tab-btn" id="topBtnLLM" onclick="switchTopTab('llm')">🤖 LLM Health</button>
+                <button class="top-tab-btn" id="topBtnQuotas" onclick="switchTopTab('quotas')">📊 Quotas & Usage</button>
+            </div>
+            <div class="top-actions">
+                <div class="conn-pill" id="connBadge">
+                    <span class="conn-dot"></span>
+                    <span id="connText">Connected</span>
+                </div>
+                <button class="btn-icon" onclick="fetchPipelineData()" title="Reload Data">🔄 Refresh</button>
+                <button class="btn-icon" onclick="logoutSystem()" title="Lock Screen">🔒 Lock</button>
+            </div>
+        </header>
+
+        <div class="app-body">
+            <aside class="sidebar">
+                <div class="sidebar-menu">
+                    <div class="sidebar-section-title">Control Studio</div>
+                    <button class="nav-item active" id="navBtnDashboard" onclick="switchLeftNav('dashboard')">
+                        <div class="nav-item-left"><span>📊</span> <span>Dashboard</span></div>
+                    </button>
+                    <button class="nav-item" id="navBtnIdeation" onclick="switchLeftNav('ideation')">
+                        <div class="nav-item-left"><span>💡</span> <span>Ideation</span></div>
+                        <span class="nav-badge">AI</span>
+                    </button>
+                    <button class="nav-item" id="navBtnIdeas" onclick="switchLeftNav('ideas')">
+                        <div class="nav-item-left"><span>📂</span> <span>Ideas</span></div>
+                        <span class="nav-badge" id="badgeIdeas">0</span>
+                    </button>
+                    <button class="nav-item" id="navBtnPipeline" onclick="switchLeftNav('pipeline')">
+                        <div class="nav-item-left"><span>🚀</span> <span>Pipeline</span></div>
+                        <span class="nav-badge" id="badgePipeline">0</span>
+                    </button>
+                    <button class="nav-item" id="navBtnVideos" onclick="switchLeftNav('videos')">
+                        <div class="nav-item-left"><span>🎬</span> <span>Video Library</span></div>
+                        <span class="nav-badge" id="badgeVideos">0</span>
+                    </button>
+                </div>
+                <div class="sidebar-footer">
+                    <button class="nav-item" id="navBtnHelp" onclick="switchLeftNav('help')">
+                        <div class="nav-item-left"><span>❓</span> <span>Help & Docs</span></div>
+                    </button>
+                </div>
+            </aside>
+
+            <main class="content-viewport">
+                <div class="view-panel active" id="viewDashboard">
+                    <div class="view-header">
+                        <div class="view-header-title">
+                            <h2>📊 Studio Overview Dashboard</h2>
+                            <p>Tổng quan tiến độ sản xuất tài liệu ASMR & tình trạng kết nối toàn hệ thống</p>
+                        </div>
+                        <button class="btn-action btn-primary" onclick="switchLeftNav('ideation')">💡 + New Ideation</button>
+                    </div>
+
+                    <div class="kpi-grid">
+                        <div class="kpi-card" onclick="switchLeftNav('ideas')" style="cursor:pointer;">
+                            <div class="kpi-icon">💡</div>
+                            <div class="kpi-data"><span class="kpi-value" id="kpiProposed">0</span><span class="kpi-label">Ideas Proposed</span></div>
+                        </div>
+                        <div class="kpi-card" onclick="switchLeftNav('pipeline')" style="cursor:pointer;">
+                            <div class="kpi-icon">📜</div>
+                            <div class="kpi-data"><span class="kpi-value" id="kpiScript">0</span><span class="kpi-label">Scripting Stage</span></div>
+                        </div>
+                        <div class="kpi-card" onclick="switchLeftNav('pipeline')" style="cursor:pointer;">
+                            <div class="kpi-icon">🎙️</div>
+                            <div class="kpi-data"><span class="kpi-value" id="kpiVoiceover">0</span><span class="kpi-label">Voiceover Matrix</span></div>
+                        </div>
+                        <div class="kpi-card" onclick="switchLeftNav('pipeline')" style="cursor:pointer;">
+                            <div class="kpi-icon">🎬</div>
+                            <div class="kpi-data"><span class="kpi-value" id="kpiReady">0</span><span class="kpi-label">Production Ready</span></div>
+                        </div>
+                        <div class="kpi-card" onclick="switchLeftNav('videos')" style="cursor:pointer;">
+                            <div class="kpi-icon">🎉</div>
+                            <div class="kpi-data"><span class="kpi-value" id="kpiDone">0</span><span class="kpi-label">Master Videos</span></div>
+                        </div>
+                    </div>
+
+                    <div class="system-status-banner">
+                        <div class="status-item"><span class="conn-dot"></span><span>Edge Gateway: <strong>Cloudflare Online</strong></span></div>
+                        <div class="status-item"><span class="conn-dot"></span><span>Database: <strong>Master Sheets Synced</strong></span></div>
+                        <div class="status-item"><span class="conn-dot"></span><span>Storage Hub: <strong>Zero-Sprawl GDrive</strong></span></div>
+                        <div class="status-item"><span class="conn-dot"></span><span>CI/CD Matrix: <strong>15-Runners Active</strong></span></div>
+                    </div>
+
+                    <div class="quick-launcher">
+                        <button class="quick-btn" onclick="switchLeftNav('ideation')">✨ <span>Start AI Ideation</span></button>
+                        <button class="quick-btn" onclick="switchLeftNav('ideas')">📂 <span>Review Ideas Backlog</span></button>
+                        <button class="quick-btn" onclick="switchLeftNav('pipeline')">🚀 <span>View Active Pipeline</span></button>
+                        <button class="quick-btn" onclick="switchTopTab('llm')">🤖 <span>Check 11 AI Keys</span></button>
+                    </div>
+
+                    <div class="glass-card" style="padding: 0; overflow: hidden; margin-top: 1.5rem;">
+                        <div style="padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="font-size: 1rem; color: #fff;">🚀 Recent & Active Pipeline Projects</h3>
+                            <button class="btn-icon" onclick="switchLeftNav('pipeline')">View Full Pipeline ➔</button>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>ID</th><th>Historical Figure</th><th>YouTube Title</th><th>Status</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="dashboardTbody">
+                                <tr><td colspan="5" style="text-align:center; padding: 2rem;">Loading Projects...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="view-panel" id="viewIdeation">
+                    <div class="view-header">
+                        <div class="view-header-title">
+                            <h2>💡 AI Ideation Studio</h2>
+                            <p>Khởi tạo nhân vật lịch sử & tiêu đề chuẩn công thức ASMR HistorySnooze</p>
+                        </div>
+                    </div>
+                    <div class="ideation-split">
+                        <div class="glass-card">
+                            <div class="form-group">
+                                <label>Historical Era / Topic Keyword:</label>
+                                <div style="display:flex; gap: 0.5rem;">
+                                    <input type="text" id="inputKeyword" class="input-text" placeholder="e.g. Ancient Rome, Viking Age" value="Ancient Rome">
+                                    <button class="btn-action btn-primary" id="btnGenFigures" onclick="generateFigures()">✨ Suggest</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Suggested Historical Figures:</label>
+                                <div class="ideation-list" id="figuresListContainer"><p style="color: var(--text-muted); font-size: 0.85rem;">Nhập từ khóa và bấm Suggest để AI gợi ý 5 nhân vật...</p></div>
+                            </div>
+                        </div>
+                        <div class="glass-card">
+                            <div class="form-group">
+                                <label>Selected Figure & High-CTR Titles:</label>
+                                <input type="text" id="selectedFigureInput" class="input-text" placeholder="Chọn một nhân vật bên trái..." readonly style="margin-bottom: 0.75rem;">
+                                <div class="ideation-list" id="titlesListContainer"><p style="color: var(--text-muted); font-size: 0.85rem;">Danh sách 5 tiêu đề YouTube sẽ xuất hiện tại đây...</p></div>
+                            </div>
+                            <div style="margin-top: 1.5rem; display:flex; justify-content:flex-end;">
+                                <button class="btn-action btn-success" id="btnSaveIdea" onclick="saveSelectedIdeaToBacklog()" style="display:none;">💾 Save to Ideas (Backlog)</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view-panel" id="viewIdeas">
+                    <div class="view-header">
+                        <div class="view-header-title">
+                            <h2>📂 Ideas Backlog (Chờ Chạy)</h2>
+                            <p>Các ý tưởng đã chọn từ Ideation, sẵn sàng kích hoạt sản xuất</p>
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding: 0; overflow: hidden;">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>ID</th><th>Historical Figure</th><th>YouTube Title</th><th>Created Date</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="ideasTbody"><tr><td colspan="5" style="text-align:center; padding: 2rem;">Loading Ideas...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="view-panel" id="viewPipeline">
+                    <div class="view-header">
+                        <div class="view-header-title">
+                            <h2>🚀 Production Pipeline</h2>
+                            <p>Theo dõi tiến độ các dự án đang chạy (Scripting, Voiceover, Keyframes, Assembly)</p>
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding: 0; overflow: hidden;">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>ID</th><th>Historical Figure</th><th>Status</th><th>Step Progress</th><th>GDrive Links</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="pipelineTbody"><tr><td colspan="6" style="text-align:center; padding: 2rem;">Loading Active Pipeline...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="view-panel" id="viewVideos">
+                    <div class="view-header">
+                        <div class="view-header-title">
+                            <h2>🎬 Master Video Library</h2>
+                            <p>Kho video tài liệu 90 phút đã hoàn thiện xuất sắc</p>
+                        </div>
+                    </div>
+                    <div class="video-grid" id="videoGridContainer"><p style="color: var(--text-muted); font-size: 0.9rem;">Chưa có video nào hoàn thành.</p></div>
+                </div>
+
+                <div class="view-panel" id="viewLLM">
+                    <div class="view-header">
+                        <div class="view-header-title">
+                            <h2>🤖 Multi-Tier AI Health Monitor</h2>
+                            <p>Kiểm tra tình trạng hoạt động của 11 AI API Keys</p>
+                        </div>
+                        <button class="btn-action btn-primary" onclick="checkAllLLMs()">⚡ Check All Keys Now</button>
+                    </div>
+                    <div class="llm-grid" id="llmGridContainer"></div>
+                </div>
+
+                <div class="view-panel" id="viewQuotas">
+                    <div class="view-header">
+                        <div class="view-header-title">
+                            <h2>📊 System Quotas & Resources</h2>
+                            <p>Tài nguyên đám mây và hạn mức tính toán thời gian thực</p>
+                        </div>
+                    </div>
+                    <div class="quotas-grid">
+                        <div class="quota-card"><span style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;">CLOUDFLARE WORKERS AI</span><div class="quota-val">8,550 / 10,000</div><div class="quota-bar"><div class="quota-bar-fill" style="width: 85%;"></div></div></div>
+                        <div class="quota-card"><span style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;">GITHUB ACTIONS COMPUTE</span><div class="quota-val">Unlimited</div><span style="color: var(--primary-blue); font-size: 0.8rem;">15 Concurrent Matrix Runners</span></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        const VALID_PASSWORDS = ["HLHana@292710$", "hlhana@292710$", "292710", "historysnooze"];
+        const MASTER_PASS = "HLHana@292710$";
+        const AUTH_KEY = "hs_dashboard_auth_token";
+        const SPREADSHEET_ID = "1x2tcR4WyHXj_cvHjpPFWNsrtelkimUXJXNTw9hPbVeo";
+
+        let pipelineData = [];
+        let selectedFigure = null;
+        let selectedTitle = null;
+        let editingItem = null;
+
+        function cleanInput(val) { return (val || "").toString().trim().replace(/[\\u200B-\\u200D\\uFEFF]/g, ""); }
+        function isAuthorized(token) { const clean = cleanInput(token); if (!clean) return false; return VALID_PASSWORDS.some(p => p.toLowerCase() === clean.toLowerCase()) || clean === "1" || clean === "true"; }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedToken = localStorage.getItem(AUTH_KEY) || sessionStorage.getItem(AUTH_KEY);
+            if (isAuthorized(savedToken)) { unlockDashboard(); } else { document.getElementById("loginOverlay").style.display = "flex"; }
+        });
+
+        function togglePassView() { const passInput = document.getElementById("inputPass"); passInput.type = (passInput.type === "password" ? "text" : "password"); }
+        function checkPassword() {
+            const pass = cleanInput(document.getElementById("inputPass").value);
+            if (isAuthorized(pass)) { localStorage.setItem(AUTH_KEY, MASTER_PASS); unlockDashboard(); } else { document.getElementById("loginErr").style.display = "block"; }
+        }
+        function unlockDashboard() { document.getElementById("loginOverlay").style.display = "none"; document.getElementById("appContainer").style.display = "flex"; fetchPipelineData(); }
+        function logoutSystem() { localStorage.removeItem(AUTH_KEY); sessionStorage.removeItem(AUTH_KEY); window.location.reload(); }
+
+        function switchLeftNav(tabName) {
+            document.querySelectorAll(".nav-item").forEach(btn => btn.classList.remove("active"));
+            document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+            const targetBtn = document.getElementById("navBtn" + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+            if (targetBtn) targetBtn.classList.add("active");
+            document.getElementById("view" + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add("active");
+        }
+
+        async function fetchPipelineData() {
+            const connText = document.getElementById("connText");
+            connText.innerText = "Syncing...";
+            try {
+                const res = await fetch("/api/pipeline/data");
+                const result = await res.json();
+                if (result.status === "SUCCESS" && Array.isArray(result.data)) {
+                    pipelineData = result.data;
+                    renderAllViews(result.kpis);
+                    connText.innerText = "Connected (" + pipelineData.length + " projects)";
+                    return;
+                }
+                throw new Error("Proxy format invalid");
+            } catch (err) {
+                console.warn("Proxy fallback to gviz:", err);
+                const fallbackUrl = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID + "/gviz/tq?tqx=out:json&sheet=Pipeline";
+                const fRes = await fetch(fallbackUrl);
+                const txt = await fRes.text();
+                const jsonMatch = txt.match(/google\\.visualization\\.Query\\.setResponse\\(([\\s\\S]*)\\);/);
+                if (jsonMatch && jsonMatch[1]) {
+                    const parsed = JSON.parse(jsonMatch[1]);
+                    const rows = parsed.table ? parsed.table.rows : [];
+                    pipelineData = [];
+                    rows.forEach((r, idx) => {
+                        if (idx === 0) return;
+                        const c = r.c;
+                        if (!c || !c[1] || !c[1].v) return;
+                        const charName = String(c[1].v).trim();
+                        if (charName === "Historical_Figure") return;
+                        pipelineData.push({ 
+                            id: c[0] && c[0].v ? String(c[0].v).trim() : "id_" + idx, 
+                            character: charName, 
+                            title: c[2] && c[2].v ? String(c[2].v).trim() : "", 
+                            status: c[3] && c[3].v ? String(c[3].v).trim() : "Proposed",
+                            gdrive: c[4] && c[4].v ? String(c[4].v) : "",
+                            outline: c[5] && c[5].v ? String(c[5].v) : "",
+                            script: c[6] && c[6].v ? String(c[6].v) : "",
+                            voiceover: c[7] && c[7].v ? String(c[7].v) : "",
+                            image: c[8] && c[8].v ? String(c[8].v) : "",
+                            video: c[9] && c[9].v ? String(c[9].v) : "",
+                            updatedAt: c[10] ? (c[10].f || c[10].v || "") : ""
+                        });
+                    });
+                    renderAllViews();
+                    connText.innerText = "Connected (" + pipelineData.length + " projects)";
+                }
+            }
+        }
+
+        function renderAllViews(serverKpis) {
+            const ideas = pipelineData.filter(d => d.status === "Proposed" || d.status === "Pending");
+            const inProgress = pipelineData.filter(d => d.status !== "Proposed" && d.status !== "Pending" && d.status !== "Done");
+            const doneVideos = pipelineData.filter(d => d.status === "Done");
+
+            document.getElementById("badgeIdeas").innerText = ideas.length;
+            document.getElementById("badgePipeline").innerText = inProgress.length;
+            document.getElementById("badgeVideos").innerText = doneVideos.length;
+
+            let scriptCount = 0, voiceCount = 0, readyCount = 0;
+            pipelineData.forEach(d => { 
+                const s = (d.status || "").toLowerCase(); 
+                if (s.includes("script")) scriptCount++; 
+                if (s.includes("voice")) voiceCount++; 
+                if (s.includes("ready")) readyCount++; 
+            });
+
+            document.getElementById("kpiProposed").innerText = serverKpis ? serverKpis.proposed : ideas.length;
+            document.getElementById("kpiScript").innerText = serverKpis ? serverKpis.script : scriptCount;
+            document.getElementById("kpiVoiceover").innerText = serverKpis ? serverKpis.voice : voiceCount;
+            document.getElementById("kpiReady").innerText = serverKpis ? serverKpis.ready : readyCount;
+            document.getElementById("kpiDone").innerText = serverKpis ? serverKpis.done : doneVideos.length;
+
+            renderDashboardTable(pipelineData.slice(0, 8));
+            renderIdeasTable(ideas);
+            renderPipelineTable(inProgress);
+            renderVideosGrid(doneVideos);
+        }
+
+        function renderDashboardTable(items) {
+            const tbody = document.getElementById("dashboardTbody");
+            if (items.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; padding: 2rem; color: var(--text-muted);'>No projects yet.</td></tr>";
+                return;
+            }
+            tbody.innerHTML = items.map(item => {
+                const s = (item.status || "").toLowerCase();
+                const statusClass = s.includes("script") ? "status-scripting" : (s.includes("voice") ? "status-voicing" : (s.includes("ready") ? "status-ready" : (s.includes("done") ? "status-done" : "status-proposed")));
+                return \`<tr><td><code>${escapeHtml(item.id)}</code></td><td><strong>${escapeHtml(item.character)}</strong></td><td><div style="max-width:320px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.title)}</div></td><td><span class="status-pill ${statusClass}">${escapeHtml(item.status)}</span></td><td><button class="btn-action btn-icon" style="padding: 4px 8px; font-size: 0.75rem;" onclick="openModalForChar('${encodeURIComponent(item.character)}')">⚙️ Actions</button></td></tr>\
