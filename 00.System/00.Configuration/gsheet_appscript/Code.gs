@@ -17,6 +17,8 @@ function onOpen() {
     .addItem("🎙️ Generate Voiceovers (/mediagen)", "triggerVoiceover")
     .addItem("🖼️ Trigger VPS ImageFX (/imagegen)", "triggerImagegen")
     .addItem("🎬 Assemble Master Video (/assemble)", "triggerAssembly")
+    .addSeparator()
+    .addItem("🛑 Emergency Stop / Cancel All (/cancel)", "triggerCancel")
     .addToUi();
 }
 
@@ -238,3 +240,17 @@ function triggerImagegen() {
   const char = getSelectedCharacter();
   if (char) callGateway("/imagegen", char);
 }
+
+function triggerCancel() {
+  const char = getSelectedCharacter() || "All";
+  const ui = SpreadsheetApp.getUi();
+  const resp = ui.alert(
+    "🛑 Confirm Emergency Stop",
+    `Are you sure you want to stop and cancel all in-progress workflows for '${char}'?`,
+    ui.ButtonSet.YES_NO
+  );
+  if (resp === ui.Button.YES) {
+    callGateway("/cancel", char);
+  }
+}
+

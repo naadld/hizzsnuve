@@ -259,3 +259,18 @@ Khi anh kích hoạt lại bất kỳ công đoạn nào (qua nút `Restart` ho�
 ```text
 [Core scene description, key characters & actions, setting, mood, color accents] — late-15th-century illuminated manuscript style painting, tempera and shell-gold, flat medieval perspective, fine brown-ink outlines, full-bleed edge-to-edge painting extending to all four edges of the 16:9 canvas, zero margins, no outer paper, no parchment border, no decorative frame, no page border, wide cinematic 16:9 composition, ultra-high-resolution (4K)
 ```
+
+---
+
+## 📑 11. Google Apps Script Menu & 2-Step Ideation Wizard
+
+Các file mã nguồn Apps Script được lưu trữ tại `00.System/00.Configuration/gsheet_appscript/`:
+* **[`Code.gs`](file:///media/vpsg16gb/HaRiDisk/Youtube/historysnooze/00.System/00.Configuration/gsheet_appscript/Code.gs)**: Logic Menu điều khiển, gọi Cloudflare Worker API và cập nhật Sheet.
+* **[`IdeationWizard.html`](file:///media/vpsg16gb/HaRiDisk/Youtube/historysnooze/00.System/00.Configuration/gsheet_appscript/IdeationWizard.html)**: Giao diện Wizard 2 bước (Gợi ý 5 nhân vật ➔ Gợi ý 5 tiêu đề ➔ Lưu vào Pipeline).
+
+### Cách Cài Đặt Lên Google Sheets (Extensions -> Apps Script):
+1. Mở [Master Pipeline Spreadsheet](https://docs.google.com/spreadsheets/d/1x2tcR4WyHXj_cvHjpPFWNsrtelkimUXJXNTw9hPbVeo).
+2. Vào **Extensions (Tiện ích mở rộng)** ➔ **Apps Script**.
+3. Dán nội dung [`Code.gs`](file:///media/vpsg16gb/HaRiDisk/Youtube/historysnooze/00.System/00.Configuration/gsheet_appscript/Code.gs) vào file `Code.gs`.
+4. Tạo file HTML tên `IdeationWizard.html` và dán nội dung [`IdeationWizard.html`](file:///media/vpsg16gb/HaRiDisk/Youtube/historysnooze/00.System/00.Configuration/gsheet_appscript/IdeationWizard.html).
+5. Bấm **Save (Lưu)** ➔ Tải lại trang tính sẽ xuất hiện menu **🚀 HistorySnooze Menu** đầy đủ chức năng!
