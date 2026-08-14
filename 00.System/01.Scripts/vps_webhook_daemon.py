@@ -55,6 +55,13 @@ class VPSWebhookHandler(BaseHTTPRequestHandler):
                 "target": "VPS_PLAYWRIGHT_CHROME_CDP",
                 "message": f"🚀 Successfully launched ImageFX Playwright Runner directly on VPS for '{character}'!"
             }).encode('utf-8'))
+        elif self.path in ["/stop-imagefx", "/api/stop-imagefx"]:
+            print("🛑 [STOP SIGNAL RECEIVED] Terminating imagefx_vps_runner processes on VPS...")
+            subprocess.run(["pkill", "-f", "imagefx_vps_runner.py"])
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"status": "STOPPED", "message": "ImageFX processes successfully terminated on VPS Linux"}')
         else:
             self.send_response(404)
             self.end_headers()

@@ -347,10 +347,27 @@ ${partNum === 1 ? "Đảm bảo đoạn đầu có câu 'dim the light' để b�
       try {
         const body = await request.json();
         const command = (body.command || pathname).toLowerCase();
-        const character = body.character || "";
+        if (command.includes("cancel") || command.includes("stop")) {
+          console.log(`🛑 [CANCEL REQUEST] Cancelling workflows for '${character}'...`);
+          // 1. Cancel GitHub Actions runs
+          const ghCancel = await cancelGitHubWorkflowRuns(env);
+          // 2. Stop VPS ImageFX runner
+          try {
+            const vpsUrl = env.VPS_IMAGEFX_URL || "http://42.118.187.123:8888/stop-imagefx";
+            await fetch(vpsUrl, {
+              method: "POST",
+              headers: { "x-vps-auth": "HLHana@292710$" }
+            });
+          } catch(e) {
+            console.warn("VPS stop signal notice:", e.message);
+          }
 
-        if (!character && !command.includes("idea")) {
-          return jsonResponse({ status: "ERROR", message: "Character name is required." }, 400);
+          return jsonResponse({
+            status: "SUCCESS",
+            command: "/cancel",
+            character: character,
+            message: `🛑 Successfully sent Stop / Cancel commands! (${ghCancel.cancelled_count || 0} GitHub workflow runs cancelled, VPS ImageFX processes stopped).`
+          });
         }
 
         if (command.includes("imagegen") || command.includes("image")) {
@@ -608,6 +625,51 @@ async function triggerGitHubWorkflow(env, workflowFile, character) {
   }
 
   return { status: "DISPATCHED" };
+}
+
+async function cancelGitHubWorkflowRuns(env) {
+  const token = env.GITHUB_PAT || "";
+  if (!token) {
+    console.warn("GITHUB_PAT secret not set. Skipping GitHub cancel API.");
+    return { status: "NO_TOKEN", cancelled_count: 0 };
+  }
+
+  try {
+    const listUrl = `https://api.github.com/repos/${GITHUB_REPO}/actions/runs?status=in_progress`;
+    const listRes = await fetch(listUrl, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "HistorySnooze-Cloudflare-Worker"
+      }
+    });
+
+    if (!listRes.ok) {
+      return { status: "ERROR", cancelled_count: 0 };
+    }
+
+    const listData = await listRes.json();
+    const runs = listData.workflow_runs || [];
+    let count = 0;
+
+    for (const run of runs) {
+      const cancelUrl = `https://api.github.com/repos/${GITHUB_REPO}/actions/runs/${run.id}/cancel`;
+      await fetch(cancelUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/vnd.github+json",
+          "User-Agent": "HistorySnooze-Cloudflare-Worker"
+        }
+      });
+      count++;
+    }
+
+    return { status: "SUCCESS", cancelled_count: count };
+  } catch (err) {
+    console.error("Error cancelling GitHub runs:", err);
+    return { status: "ERROR", cancelled_count: 0, error: err.message };
+  }
 }
 
 function jsonResponse(data, status = 200) {
@@ -942,10 +1004,11 @@ function getDashboardHTML(sheetId) {
                 
                 <label>Select Command:</label>
                 <select id="modalSelectCommand">
-                    <option value="/start">📜 /start (Start Pre-Production Scripting)</option>
-                    <option value="/mediagen">🎙️ /mediagen (Generate 15 OmniVoice Audio Jobs)</option>
-                    <option value="/imagegen">🖼️ /imagegen (Run Playwright ImageFX Keyframes)</option>
-                    <option value="/assemble">🎬 /assemble (Render Master Ken Burns MP4 Video)</option>
+                    <option value="/start">📜 /start (Start / Restart Scripting on Cloudflare)</option>
+                    <option value="/mediagen">🎙️ /mediagen (Start / Restart 15-Job Voiceover Matrix)</option>
+                    <option value="/imagegen">🖼️ /imagegen (Start / Restart VPS ImageFX 4K)</option>
+                    <option value="/assemble">🎬 /assemble (Start / Restart Ken Burns Assembly)</option>
+                    <option value="/cancel" style="color: #ef4444; font-weight: bold;">🛑 /cancel (Emergency Stop / Cancel Workflows)</option>
                 </select>
             </div>
             <div class="modal-footer">
