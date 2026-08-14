@@ -193,7 +193,7 @@ Toàn bộ các Gatekeepers trên GitHub Actions và VPS Linux đều được k
 4. **Dựng Phim Hoàn Tất (Assembly)**:
    * Cloudflare tự động dispatch `/assemble` ➔ GitHub Actions kéo nguyên liệu từ GDrive, kiểm toán GK6, dựng video Part-by-Part và kiểm toán GK7 ➔ Upload Master MP4 lên Google Drive `03.Final Production/` và đổi Sheet sang `Done`!
 
-## 📁 6. Cấu Trúc Lưu Trữ Chuẩn Trên Google Drive (`1UGkrUFQ62ghj1Lquy1HVsKIYR9nO60zf`)
+## 📁 7. Cấu Trúc Lưu Trữ Chuẩn Trên Google Drive (`1UGkrUFQ62ghj1Lquy1HVsKIYR9nO60zf`)
 
 ```text
 📁 historysnooze posts/ (Parent Folder: 1UGkrUFQ62ghj1Lquy1HVsKIYR9nO60zf)
@@ -213,7 +213,7 @@ Toàn bộ các Gatekeepers trên GitHub Actions và VPS Linux đều được k
 
 ---
 
-## 📊 7. Google Sheets Master Pipeline Schema (`Pipeline!A:K`)
+## 📊 8. Google Sheets Master Pipeline Schema (`Pipeline!A:K`)
 
 | Column | Header Name | Status & Lifecycle Description | Clickable GDrive Link |
 | :---: | :--- | :--- | :--- |
@@ -228,16 +228,6 @@ Toàn bộ các Gatekeepers trên GitHub Actions và VPS Linux đều được k
 | **I** | `Image` | Hiển thị `Imaging` khi đang chạy; link tới `keyframes/` | `https://drive.google.com/drive/u/0/folders/...` |
 | **J** | `Video` | Link xem Master MP4 trên GDrive (GK7 Passed) | `https://drive.google.com/file/d/.../view` |
 | **K** | `Updated_At` | Dấu thời gian cập nhật gần nhất (`YYYY-MM-DD HH:MM:SS`) | |
-
----
-
-## 🎨 8. Công Thức Sinh Prompts Tràn Viền Chuẩn Kênh (Full-Bleed Edge-to-Edge)
-
-```text
-Late-15th-century illuminated manuscript style painting of [SCENE DESCRIPTION], 
-rich tempera and gold leaf on aged parchment, glowing candlelight, 
-fine intricate line work, full-bleed edge-to-edge, zero margins, no frame, 16:9 4K
-```
 
 ---
 
@@ -262,4 +252,10 @@ Khi anh kích hoạt lại bất kỳ công đoạn nào (qua nút `Restart` ho�
 | **3. Ảnh Keyframe (`keyframes/`)** | Chạy GK5: Dung lượng $\ge$ 30KB (chuẩn 16:9). | Bỏ qua các ảnh hợp lệ hoặc ảnh anh đã tự đưa vào; chỉ gen đúng các beat ảnh còn thiếu. |
 | **4. Dựng Phim (`video_parts/`)** | Kiểm tra `Part_XX_Video.mp4` (Duration > 10s). | Giữ nguyên các Part Video đã render xong; chỉ render Part bị lỗi rồi ghép lại trong 10s. |
 
-`[Core scene description, key characters & actions, setting, mood, color accents] — late-15th-century illuminated manuscript style painting, tempera and shell-gold, flat medieval perspective, fine brown-ink outlines, full-bleed edge-to-edge painting extending to all four edges of the 16:9 canvas, zero margins, no outer paper, no parchment border, no decorative frame, no page border, wide cinematic 16:9 composition, ultra-high-resolution (4K)`
+---
+
+## 🎨 10. Công Thức Sinh Prompts Tràn Viền Chuẩn Kênh (Full-Bleed Edge-to-Edge)
+
+```text
+[Core scene description, key characters & actions, setting, mood, color accents] — late-15th-century illuminated manuscript style painting, tempera and shell-gold, flat medieval perspective, fine brown-ink outlines, full-bleed edge-to-edge painting extending to all four edges of the 16:9 canvas, zero margins, no outer paper, no parchment border, no decorative frame, no page border, wide cinematic 16:9 composition, ultra-high-resolution (4K)
+```
