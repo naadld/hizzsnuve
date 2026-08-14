@@ -104,6 +104,11 @@ jobs:
           path: downloaded_audio/
 
       - name: Combine 15 Parts with 5.0s Silence Pacing & Upload to GDrive
+        env:
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
         run: |
           CHARACTER="${{ github.event.inputs.character || github.event.client_payload.character }}"
           echo "🔗 Combining 15 Audio Parts for: $CHARACTER"
