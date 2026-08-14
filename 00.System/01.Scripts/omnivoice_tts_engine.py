@@ -397,9 +397,15 @@ def combine_all_audio_parts(character_name, project_dir, artifacts_dir=""):
         if os.path.exists(wav_path):
             audio_files.append((p, wav_path))
 
+    missing_parts = [p for p in range(1, 16) if not any(x[0] == p for x in audio_files)]
     print(f"Found {len(audio_files)}/15 Audio Parts for concatenation.")
-    if not audio_files:
-        print("[Error] No audio files found to combine.")
+    if len(audio_files) < 15:
+        print(f"⛔ [GK4 INCOMPLETE] Found only {len(audio_files)}/15 audio parts. Missing: {missing_parts}. Cannot combine.")
+        notify_cloudflare("GK_ERROR", character_name, {
+            "gk": "GK4",
+            "reason": f"Only {len(audio_files)}/15 parts collected from matrix",
+            "missing_parts": missing_parts
+        })
         return False
 
     # Create 5.0s silence wav
