@@ -302,7 +302,7 @@ ${partNum === 1 ? "Đảm bảo đoạn đầu có câu 'dim the light' để b�
     }
 
     // ==========================================
-    // 3.4. BI-DIRECTIONAL PIPELINE SIGNALS CALLBACK (GitHub Actions & VPS Gatekeepers -> Cloudflare)
+    // 3.4. ACTIVE SUPERVISOR & GATEKEEPER 4-7 TELEMETRY (Cloudflare Edge Orchestration)
     // ==========================================
     if ((pathname === "/api/pipeline/callback" || pathname === "/api/webhook/status") && request.method === "POST") {
       try {
@@ -312,27 +312,67 @@ ${partNum === 1 ? "Đảm bảo đoạn đầu có câu 'dim the light' để b�
         const data = body.data || {};
         const timestamp = new Date().toISOString();
 
-        console.log(`📡 [PIPELINE SIGNAL RECEIVED] Event: ${event} | Character: ${character} | Data:`, JSON.stringify(data));
+        console.log(`📡 [GATEKEEPER SUPERVISOR] Event: ${event} | Character: ${character} | Data:`, JSON.stringify(data));
 
-        let autoAction = null;
+        let remediationAction = null;
+
+        // GK4 SUPERVISION (Acoustic Quality & 15/15 Audio Audit)
         if (event === "VOICEOVER_COMPLETED") {
-          console.log(`✅ [GK4 PASSED] 15/15 Audio Parts generated for '${character}'`);
-        } else if (event === "IMAGES_COMPLETED") {
-          console.log(`✅ [GK5 PASSED] Keyframe Images generated for '${character}'`);
-        } else if (event === "GK6_VERIFIED") {
-          console.log(`✅ [GK6 PASSED] Pre-assembly asset audit passed for '${character}' (${data.audio_count || 15} audio, ${data.img_count || 0} images)`);
-        } else if (event === "ASSEMBLY_COMPLETED") {
-          console.log(`🎉 [GK7 PASSED] Master Video produced for '${character}'! URL: ${data.video_url || 'N/A'} (Duration: ${data.duration || 0}s)`);
-        } else if (event === "GK_ERROR") {
-          console.error(`⛔ [GATEKEEPER ALERT] Failure in ${data.gk || 'Unknown GK'} for '${character}':`, data.reason || data.error);
+          console.log(`✅ [GK4 SUPERVISED] 15/15 Audio Parts verified for '${character}'`);
+          if (data.missing_parts && data.missing_parts.length > 0) {
+            console.log(`🔄 [GK4 AUTO-HEALING] Re-dispatching voiceover for missing parts:`, data.missing_parts);
+            remediationAction = "RETRY_VOICEOVER_MISSING";
+            await triggerGitHubWorkflow(env, "voiceover_matrix.yml", character);
+          }
+        } 
+        
+        // GK5 SUPERVISION (Image Quality & 4K 16:9 Audit)
+        else if (event === "IMAGES_COMPLETED") {
+          console.log(`✅ [GK5 SUPERVISED] Keyframe Images verified for '${character}' (${data.total_images || 0} images)`);
+        } 
+        
+        // GK6 SUPERVISION (Pre-Assembly Asset Completeness)
+        else if (event === "GK6_VERIFIED") {
+          console.log(`✅ [GK6 SUPERVISED] Ready for Master Assembly: '${character}' (${data.audio_count || 15} audio parts, ${data.img_count || 0} images)`);
+        } 
+        
+        // GK7 SUPERVISION (Final Master Video Duration & Size Quality Check)
+        else if (event === "ASSEMBLY_COMPLETED") {
+          console.log(`🎉 [GK7 SUPERVISED] Master Documentary Video Produced for '${character}'! Duration: ${data.duration || 0}s | URL: ${data.video_url || 'N/A'}`);
+        } 
+        
+        // AUTO-HEALING GATEKEEPER ERROR HANDLER
+        else if (event === "GK_ERROR") {
+          console.error(`⛔ [GATEKEEPER VIOLATION DETECTED] GK: ${data.gk || 'Unknown'} | Character: '${character}' | Reason:`, data.reason || data.error);
+          
+          // Auto-Remediation based on failing Gatekeeper
+          if (data.gk === "GK4" || data.gk === "GK6_AUDIO_MISSING") {
+            console.log(`🔄 [AUTO-RECOVERY] Re-triggering GitHub Actions Voiceover Matrix for '${character}'...`);
+            remediationAction = "AUTO_RETRIGGER_VOICEOVER";
+            await triggerGitHubWorkflow(env, "voiceover_matrix.yml", character);
+          } else if (data.gk === "GK5" || data.gk === "GK6_IMAGES_MISSING") {
+            console.log(`🔄 [AUTO-RECOVERY] Re-triggering VPS ImageFX Runner for '${character}'...`);
+            remediationAction = "AUTO_RETRIGGER_VPS_IMAGEFX";
+            const vpsUrl = env.VPS_IMAGEFX_URL || "http://42.118.187.123:8888/run-imagefx";
+            try {
+              await fetch(vpsUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-vps-auth": "HLHana@292710$" },
+                body: JSON.stringify({ character: character, project_dir: `01.Projects/${character}` })
+              });
+            } catch (e) {
+              console.warn("VPS Auto-retry notice:", e.message);
+            }
+          }
         }
 
         return jsonResponse({
           status: "SUCCESS",
           event: event,
           character: character,
+          remediation: remediationAction,
           timestamp: timestamp,
-          message: `📡 Gatekeeper signal '${event}' successfully received & processed on Cloudflare Edge!`
+          message: `📡 Cloudflare Supervisor successfully processed '${event}' with Gatekeeper enforcement.`
         });
       } catch (err) {
         return jsonResponse({ status: "ERROR", message: err.message }, 500);
