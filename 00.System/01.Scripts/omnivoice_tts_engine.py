@@ -5,7 +5,29 @@ import json
 import time
 import argparse
 import subprocess
+import re
+import numpy as np
 from googleapiclient.discovery import build
+
+def notify_cloudflare(event_name, character_name, data=None):
+    """Fires telemetry & gatekeeper status signals back to Cloudflare Worker Edge Gateway"""
+    worker_url = os.environ.get("CLOUDFLARE_WORKER_URL", "https://historysnooze-gateway.hothihuong113.workers.dev")
+    try:
+        import requests
+        requests.post(
+            f"{worker_url}/api/pipeline/callback",
+            json={
+                "event": event_name,
+                "character": character_name,
+                "data": data or {},
+                "timestamp": time.time()
+            },
+            headers={"Content-Type": "application/json"},
+            timeout=5
+        )
+        print(f"📡 [SIGNAL SENT -> CLOUDFLARE] {event_name} for '{character_name}'")
+    except Exception as e:
+        print(f"⚠️ Notice sending signal to Cloudflare: {e}")
 
 def ensure_omnivoice_installed():
     try:
@@ -442,6 +464,14 @@ def combine_all_audio_parts(character_name, project_dir, artifacts_dir=""):
                         body={"values": [[final_status]]}
                     ).execute()
                     print(f"✅ Updated Sheet Pipeline Row {row_idx}: Status={final_status}, Audio Link={audio_gdrive_url}")
+
+                # Bắn Signal sang Cloudflare Worker: 15/15 Audio Parts hoàn tất GK4!
+                notify_cloudflare("VOICEOVER_COMPLETED", character_name, {
+                    "status": "SUCCESS",
+                    "total_parts": len(audio_files),
+                    "combined_wav": combined_out_wav,
+                    "audio_gdrive_url": audio_gdrive_url
+                })
     except Exception as ge:
         print(f"⚠️ GDrive / Sheet Update Notice: {ge}")
 

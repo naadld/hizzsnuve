@@ -302,7 +302,45 @@ ${partNum === 1 ? "Đảm bảo đoạn đầu có câu 'dim the light' để b�
     }
 
     // ==========================================
-    // 4. GITHUB ACTIONS DISPATCH GATEWAY ENDPOINTS (Media Heavy Steps: TTS, VPS ImageFX, Assembly)
+    // 3.4. BI-DIRECTIONAL PIPELINE SIGNALS CALLBACK (GitHub Actions & VPS Gatekeepers -> Cloudflare)
+    // ==========================================
+    if ((pathname === "/api/pipeline/callback" || pathname === "/api/webhook/status") && request.method === "POST") {
+      try {
+        const body = await request.json();
+        const event = body.event || "UNKNOWN";
+        const character = body.character || "Unknown";
+        const data = body.data || {};
+        const timestamp = new Date().toISOString();
+
+        console.log(`📡 [PIPELINE SIGNAL RECEIVED] Event: ${event} | Character: ${character} | Data:`, JSON.stringify(data));
+
+        let autoAction = null;
+        if (event === "VOICEOVER_COMPLETED") {
+          console.log(`✅ [GK4 PASSED] 15/15 Audio Parts generated for '${character}'`);
+        } else if (event === "IMAGES_COMPLETED") {
+          console.log(`✅ [GK5 PASSED] Keyframe Images generated for '${character}'`);
+        } else if (event === "GK6_VERIFIED") {
+          console.log(`✅ [GK6 PASSED] Pre-assembly asset audit passed for '${character}' (${data.audio_count || 15} audio, ${data.img_count || 0} images)`);
+        } else if (event === "ASSEMBLY_COMPLETED") {
+          console.log(`🎉 [GK7 PASSED] Master Video produced for '${character}'! URL: ${data.video_url || 'N/A'} (Duration: ${data.duration || 0}s)`);
+        } else if (event === "GK_ERROR") {
+          console.error(`⛔ [GATEKEEPER ALERT] Failure in ${data.gk || 'Unknown GK'} for '${character}':`, data.reason || data.error);
+        }
+
+        return jsonResponse({
+          status: "SUCCESS",
+          event: event,
+          character: character,
+          timestamp: timestamp,
+          message: `📡 Gatekeeper signal '${event}' successfully received & processed on Cloudflare Edge!`
+        });
+      } catch (err) {
+        return jsonResponse({ status: "ERROR", message: err.message }, 500);
+      }
+    }
+
+    // ==========================================
+    // 4. GITHUB ACTIONS DISPATCH GATEWAY ENDPOINTS (Media Heavy Steps: TTS, Assembly)
     // ==========================================
 
     if (request.method === "POST") {

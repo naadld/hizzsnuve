@@ -4,7 +4,27 @@ import glob
 import time
 import subprocess
 import argparse
+import requests
 from googleapiclient.discovery import build
+
+def notify_cloudflare(event_name, character_name, data=None):
+    """Fires telemetry & gatekeeper status signals back to Cloudflare Worker Edge Gateway"""
+    worker_url = os.environ.get("CLOUDFLARE_WORKER_URL", "https://historysnooze-gateway.hothihuong113.workers.dev")
+    try:
+        requests.post(
+            f"{worker_url}/api/pipeline/callback",
+            json={
+                "event": event_name,
+                "character": character_name,
+                "data": data or {},
+                "timestamp": time.time()
+            },
+            headers={"Content-Type": "application/json"},
+            timeout=5
+        )
+        print(f"📡 [SIGNAL SENT -> CLOUDFLARE] {event_name} for '{character_name}'")
+    except Exception as e:
+        print(f"⚠️ Notice sending signal to Cloudflare: {e}")
 
 def get_media_duration(file_path):
     """Utility function to get duration of audio/video using ffprobe"""
@@ -238,8 +258,11 @@ def build_kenburns_video(project_dir, output_mp4_path):
 
     # GK7 Quality Check & Upload
     final_dur = get_media_duration(output_mp4_path)
-    if final_dur > 0:
-        print(f"✅ [GK7 PASSED] Final Master Video Duration: {final_dur:.2f}s ({final_dur/60:.1f} minutes)")
+    file_size_mb = os.path.getsize(output_mp4_path) / (1024 * 1024) if os.path.exists(output_mp4_path) else 0
+
+    if final_dur > 0 and file_size_mb > 10:
+        print(f"✅ [GK7 PASSED] Final Master Video Duration: {final_dur:.2f}s ({final_dur/60:.1f} minutes) | Size: {file_size_mb:.1f}MB")
+        final_url = ""
         if gdrive_service and tree.get("final_id"):
             final_id = upload_file(gdrive_service, output_mp4_path, parent_id=tree["final_id"])
             if final_id and row_idx:
@@ -258,8 +281,20 @@ def build_kenburns_video(project_dir, output_mp4_path):
                     body={"values": [["Done"]]}
                 ).execute()
                 print(f"🎉 Updated Sheet Row {row_idx}: Status=Done, Video Link={final_url}")
+
+        # Bắn Signal GK7_PASSED sang Cloudflare Worker
+        notify_cloudflare("ASSEMBLY_COMPLETED", character_name, {
+            "status": "SUCCESS",
+            "duration": round(final_dur, 2),
+            "file_size_mb": round(file_size_mb, 2),
+            "video_url": final_url
+        })
     else:
-        print(f"⛔ [GK7 FAILED] Video duration is 0s for {output_mp4_path}")
+        print(f"⛔ [GK7 FAILED] Video duration is 0s or file empty for {output_mp4_path}")
+        notify_cloudflare("GK_ERROR", character_name, {
+            "gk": "GK7",
+            "reason": f"Final video validation failed (Duration: {final_dur}s, Size: {file_size_mb}MB)"
+        })
         sys.exit(1)
 
 if __name__ == "__main__":

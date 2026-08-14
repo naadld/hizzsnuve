@@ -4,10 +4,30 @@ import glob
 import json
 import time
 import argparse
+import requests
 from typing import Optional
 from googleapiclient.discovery import build
 
 DOWNLOADS_DIR = os.path.expanduser("~/Downloads")
+
+def notify_cloudflare(event_name, character_name, data=None):
+    """Fires telemetry & gatekeeper status signals back to Cloudflare Worker Edge Gateway"""
+    worker_url = os.environ.get("CLOUDFLARE_WORKER_URL", "https://historysnooze-gateway.hothihuong113.workers.dev")
+    try:
+        requests.post(
+            f"{worker_url}/api/pipeline/callback",
+            json={
+                "event": event_name,
+                "character": character_name,
+                "data": data or {},
+                "timestamp": time.time()
+            },
+            headers={"Content-Type": "application/json"},
+            timeout=5
+        )
+        print(f"📡 [SIGNAL SENT -> CLOUDFLARE] {event_name} for '{character_name}'")
+    except Exception as e:
+        print(f"⚠️ Notice sending signal to Cloudflare: {e}")
 
 def validate_image_file(file_path):
     """GK5 Physical Image Validator: Size >= 30KB"""
@@ -251,7 +271,15 @@ def run_vps_imagefx_generator(character_name, project_dir, cdp_port=9222):
                                 body={"values": [["Ready"]]}
                             ).execute()
                             print(f"✅ Status updated to 'Ready' for {character_name}")
-                        print(f"✅ Updated Sheet Pipeline Row {row_idx}: Image Link={keyframes_url}")
+
+                    # Bắn Signal IMAGES_COMPLETED sang Cloudflare Worker: 100% Ảnh Đạt GK5!
+                    notify_cloudflare("IMAGES_COMPLETED", character_name, {
+                        "status": "SUCCESS",
+                        "total_images": len(all_prompts),
+                        "keyframes_gdrive_url": keyframes_url
+                    })
+                    print(f"\n🎉 Keyframe Generation Completed for {character_name}!")
+                    print(f"✅ Updated Sheet Pipeline Row {row_idx}: Image Link={keyframes_url}")
             except Exception as se:
                 print(f"⚠️ Sheet Image Link Update Error: {se}")
 

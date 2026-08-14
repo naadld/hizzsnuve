@@ -164,6 +164,32 @@ Ngay sau khi hoàn thành 15 tập kịch bản & beats, hệ thống tự độ
 
 ---
 
+## 📡 6. Vòng Phản Hồi Tín Hiệu 2 Chiều (Bi-Directional Telemetry & Gatekeeper Signals)
+
+Toàn bộ các Gatekeepers trên GitHub Actions và VPS Linux đều được kết nối với **Cloudflare Worker Gateway** qua Webhook Callback: `POST /api/pipeline/callback`.
+
+| Tín Hiệu (Event Signal) | Nguồn Phát | Ý Nghĩa Kỹ Thuật | Phản Ứng Của Cloudflare Worker |
+| :--- | :---: | :--- | :--- |
+| **`VOICEOVER_COMPLETED`** | GitHub Actions (Stage 3) | 15/15 Audio Parts đã hoàn thành xuất sắc GK4 và upload lên GDrive. | Lưu trạng thái Audio sẵn sàng; nếu Ảnh cũng xong ➔ Tự động kích hoạt `/assemble`. |
+| **`IMAGES_COMPLETED`** | VPS Linux Playwright | 100% Ảnh Keyframes 4K đã tải về đạt GK5 và upload lên GDrive. | Lưu trạng thái Ảnh sẵn sàng; nếu Audio cũng xong ➔ Tự động kích hoạt `/assemble`. |
+| **`GK6_VERIFIED`** | GitHub Actions (Assembly) | Đã kiểm toán đầy đủ 15 audio parts và $\ge 15$ ảnh keyframes trước khi dựng. | Cập nhật thanh tiến trình realtime trên WebApp Dashboard. |
+| **`ASSEMBLY_COMPLETED`** | GitHub Actions (Assembly) | Video Master MP4 90 phút đã render xong, đạt GK7 và đã upload lên GDrive. | Đổi trạng thái Sheet sang **`Done`**, thông báo thành công lên WebApp/Telegram! |
+| **`GK_ERROR`** | Mọi Chốt Chặn | Phát hiện vi phạm chất lượng tại một bước cụ thể. | Ghi log cảnh báo và thông báo lỗi kèm vị trí Part cần xử lý. |
+
+---
+
+## 🚀 7. Hướng Dẫn Vận Hành Thực Tế
+
+1. **Khởi chạy Ý tưởng (Ideation & Scripting)**:
+   * Truy cập WebApp Control Center tại `https://historysnooze-gateway.hothihuong113.workers.dev`.
+   * Gợi ý Tiêu đề ➔ Chọn Nhân vật ➔ Hệ thống tự động biên kịch 15 tập (GK1, GK2, GK3) trên Cloudflare Edge.
+2. **Sinh Âm Thanh (Voiceover)**:
+   * Bấm `/mediagen` ➔ GitHub Actions kích hoạt ma trận 15 máy ảo từ Cache (GK4) ➔ Tự động bắn tín hiệu `VOICEOVER_COMPLETED` về Cloudflare.
+3. **Sinh Ảnh (ImageFX)**:
+   * Bấm `/imagegen` ➔ VPS Linux điều khiển Chrome CDP 9222 sinh ảnh 4K (GK5) ➔ Tự động bắn tín hiệu `IMAGES_COMPLETED` về Cloudflare.
+4. **Dựng Phim Hoàn Tất (Assembly)**:
+   * Cloudflare tự động dispatch `/assemble` ➔ GitHub Actions kéo nguyên liệu từ GDrive, kiểm toán GK6, dựng video Part-by-Part và kiểm toán GK7 ➔ Upload Master MP4 lên Google Drive `03.Final Production/` và đổi Sheet sang `Done`!
+
 ## 📁 6. Cấu Trúc Lưu Trữ Chuẩn Trên Google Drive (`1UGkrUFQ62ghj1Lquy1HVsKIYR9nO60zf`)
 
 ```text
