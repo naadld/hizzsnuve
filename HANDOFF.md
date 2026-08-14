@@ -102,9 +102,12 @@ Ngay sau khi hoàn thành 15 tập kịch bản & beats, hệ thống tự độ
 * **Nền tảng**: GitHub Actions (`voiceover_matrix.yml`) chạy **15 Parallel Jobs**.
 * **Làm gì**: Chạy OmniVoice TTS với giọng mẫu `historysnoozevoice_voice_milo.mp3` ➔ Sinh 15 file WAV chất lượng cao đưa vào `02.Media Generation/audio/`.
 
-### 🖼️ Bước 4: Sinh Ảnh Keyframe Tràn Viền (`/imagegen`)
-* **Nền tảng**: VPS Linux Playwright CDP (port 9222) kích hoạt qua `imagefx_vps.yml`.
-* **Làm gì**: Điều khiển Google ImageFX sinh 45-60 bức ảnh illuminated manuscript tràn viền 16:9 4K đưa vào `02.Media Generation/keyframes/`.
+### 🖼️ Bước 4: Sinh Ảnh Keyframe Tràn Viền Đa Chế Độ (`/imagegen` & Hybrid Mode)
+* **Nền tảng**: VPS Linux Playwright CDP (port 9222) kết hợp Google Drive.
+* **Hỗ trợ 3 Chế Độ Linh Hoạt (Triple-Mode Execution)**:
+  * **Chế độ 1 (100% Tự động Auto-Pilot)**: VPS tự kết nối Chrome CDP cổng 9222, gõ prompt từ `combined_imageprompts.txt`, tải ảnh 4K gốc về, đổi tên `beat_PXX_BYY.jpg`, kiểm toán GK5 và upload lên GDrive `keyframes/`.
+  * **Chế độ 2 (Anh tự tạo thủ công - Curated Art)**: Anh lấy prompt trong `combined_imageprompts.txt`, tự tạo ảnh trên Midjourney / Fooocus / ImageFX / Photoshop, đặt tên đúng chuẩn `beat_PXX_BYY.jpg` rồi kéo thả thẳng vào GDrive `02.Media Generation/keyframes/`. Hệ thống tự nhận diện và chuyển trạng thái sang `Ready`!
+  * **Chế độ 3 (Lai ghép Hybrid)**: Nếu anh đã tự làm trước một số ảnh, VPS sẽ tự động bỏ qua các ảnh đã có (`[HYBRID SKIP]`) và chỉ sinh tự động những ảnh còn thiếu!
 
 ### 🎬 Bước 5: Ghép Master Video MP4 Bằng Phương Pháp Part-by-Part (`/assemble`)
 * **Nền tảng**: GitHub Actions (`assembly_kenburns.yml`) / FFmpeg.

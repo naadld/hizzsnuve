@@ -109,7 +109,45 @@ def run_vps_imagefx_generator(character_name, project_dir, cdp_port=9222):
 
     print(f"Total Keyframe Images to Generate: {len(all_prompts)}")
     if not all_prompts:
-        print("🎉 All keyframe images already generated & validated!")
+        print("🎉 [HYBRID COMPLETE] All keyframe images already exist & validated (Manual / Curated Art detected)!")
+        try:
+            from gdrive_utils import get_gdrive_service, ensure_project_tree
+            gdrive_service = get_gdrive_service()
+            if gdrive_service:
+                tree = ensure_project_tree(gdrive_service, character_name)
+                keyframes_url = f"https://drive.google.com/drive/u/0/folders/{tree['keyframes_id']}"
+                from format_gsheet_control_center import SPREADSHEET_ID
+                sheets_svc = build("sheets", "v4", credentials=gdrive_service._credentials)
+                res = sheets_svc.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range="Pipeline!A:K").execute()
+                rows = res.get("values", [])
+                row_idx = None
+                for idx, r in enumerate(rows):
+                    if len(r) > 1 and r[1].strip().lower() == character_name.strip().lower():
+                        row_idx = idx + 1
+                        break
+                if row_idx:
+                    sheets_svc.spreadsheets().values().update(
+                        spreadsheetId=SPREADSHEET_ID,
+                        range=f"Pipeline!I{row_idx}",
+                        valueInputOption="USER_ENTERED",
+                        body={"values": [[keyframes_url]]}
+                    ).execute()
+                    curr_status = rows[row_idx - 1][3] if len(rows[row_idx - 1]) > 3 else ""
+                    if curr_status == "Voiceover":
+                        sheets_svc.spreadsheets().values().update(
+                            spreadsheetId=SPREADSHEET_ID,
+                            range=f"Pipeline!D{row_idx}",
+                            valueInputOption="USER_ENTERED",
+                            body={"values": [["Ready"]]}
+                        ).execute()
+                notify_cloudflare("IMAGES_COMPLETED", character_name, {
+                    "status": "SUCCESS",
+                    "mode": "HYBRID_MANUAL",
+                    "total_images": len(beats_files) * 4,
+                    "keyframes_gdrive_url": keyframes_url
+                })
+        except Exception as he:
+            print(f"⚠️ Hybrid Sheet/Signal Update Notice: {he}")
         return
 
     try:
