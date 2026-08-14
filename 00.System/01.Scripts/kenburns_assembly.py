@@ -41,9 +41,10 @@ def get_media_duration(file_path):
         print(f"⚠️ Error probing duration for {file_path}: {e}")
         return 0.0
 
-def run_gk6_asset_auditor(project_dir):
+def run_gk6_asset_auditor(project_dir, character_name="", max_wait_attempts=3):
     """
     Gatekeeper 6 Auditor: Ensures 100% audio parts and keyframe images are present before rendering.
+    Includes a 3-attempt Grace Period with Google Drive resync to prevent premature race condition failures.
     """
     media_dir = os.path.join(project_dir, "02.Media Generation")
     audio_dir = os.path.join(media_dir, "audio")
@@ -51,24 +52,39 @@ def run_gk6_asset_auditor(project_dir):
 
     print(f"\n--- Phase 4: Gatekeeper 6 Asset Auditor for {os.path.basename(project_dir)} ---")
 
-    missing_audio = []
-    for p in range(1, 16):
-        wav_path = os.path.join(audio_dir, f"Part_{p:02d}_Voiceover.wav")
-        if not os.path.exists(wav_path):
-            matches = glob.glob(os.path.join(audio_dir, f"*Part_{p:02d}*.wav"))
-            if not matches:
-                missing_audio.append(p)
+    for attempt in range(1, max_wait_attempts + 1):
+        missing_audio = []
+        for p in range(1, 16):
+            wav_path = os.path.join(audio_dir, f"Part_{p:02d}_Voiceover.wav")
+            if not os.path.exists(wav_path) or os.path.getsize(wav_path) < 10240:
+                matches = [f for f in glob.glob(os.path.join(audio_dir, f"*Part_{p:02d}*.wav")) if os.path.getsize(f) >= 10240]
+                if not matches:
+                    missing_audio.append(p)
+
+        image_files = [f for f in (glob.glob(os.path.join(keyframes_dir, "*.jpg")) + glob.glob(os.path.join(keyframes_dir, "*.png"))) if os.path.getsize(f) >= 30720]
+
+        if not missing_audio and len(image_files) >= 15:
+            print(f"✅ [GK6 PASSED] Verified 15/15 Audio Parts and {len(image_files)} Keyframe Images (Attempt {attempt}/{max_wait_attempts}).")
+            return True
+
+        if attempt < max_wait_attempts:
+            print(f"⏳ [GK6 GRACE PERIOD] Assets still syncing (Audio missing: {missing_audio}, Images: {len(image_files)}/15). Waiting 8s for in-flight uploads... (Attempt {attempt}/{max_wait_attempts})")
+            time.sleep(8)
+            try:
+                from gdrive_utils import sync_project_from_gdrive
+                if character_name:
+                    sync_project_from_gdrive(character_name, project_dir)
+            except Exception:
+                pass
 
     if missing_audio:
-        print(f"⛔ [GK6 REJECTED] Missing audio for Parts: {missing_audio}")
+        print(f"⛔ [GK6 REJECTED] Missing or corrupt audio for Parts: {missing_audio}")
         return False
 
-    image_files = glob.glob(os.path.join(keyframes_dir, "*.jpg")) + glob.glob(os.path.join(keyframes_dir, "*.png"))
     if len(image_files) < 15:
-        print(f"⛔ [GK6 REJECTED] Found only {len(image_files)} keyframe images (minimum 15 required).")
+        print(f"⛔ [GK6 REJECTED] Found only {len(image_files)} valid keyframe images (minimum 15 required).")
         return False
 
-    print(f"✅ [GK6 PASSED] Found 15/15 Audio Parts and {len(image_files)} Keyframe Images.")
     return True
 
 def render_part_video(part_num, wav_path, part_images, output_part_mp4):
@@ -170,15 +186,20 @@ def build_kenburns_video(project_dir, output_mp4_path):
         tree = {}
         row_idx = None
 
-    # Run GK6 Audit
-    if not run_gk6_asset_auditor(project_dir):
-        print("⚠️ Warning: GK6 Asset auditor detected missing parts.")
-
-    # All keyframes
-    all_images = sorted(glob.glob(os.path.join(keyframes_dir, "*.jpg"))) + sorted(glob.glob(os.path.join(keyframes_dir, "*.png")))
-    if not all_images:
-        print("[Error] No keyframe images found in keyframes directory. Cannot assemble.")
+    # Run GK6 Asset Audit (with 3-attempt resync grace period)
+    if not run_gk6_asset_auditor(project_dir, character_name=character_name):
+        print("⛔ [GK6 HALT] Assets are not complete. Halting assembly to prevent broken video.")
+        notify_cloudflare("GK_ERROR", character_name, {
+            "gk": "GK6",
+            "reason": "GK6 Asset audit rejected: Incomplete audio parts or keyframe images."
+        })
         sys.exit(1)
+
+    all_images = sorted(glob.glob(os.path.join(keyframes_dir, "*.jpg"))) + sorted(glob.glob(os.path.join(keyframes_dir, "*.png")))
+    notify_cloudflare("GK6_VERIFIED", character_name, {
+        "audio_count": 15,
+        "img_count": len(all_images)
+    })
 
     rendered_parts = []
 
