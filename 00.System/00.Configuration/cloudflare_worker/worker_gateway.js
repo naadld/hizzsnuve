@@ -1443,10 +1443,6 @@ function getDashboardHTML(sheetId) {
                     <span>100% Online Global ASMR Production</span>
                 </div>
             </div>
-            <div class="top-nav-tabs">
-                <button class="top-tab-btn" id="topBtnLLM" onclick="switchTopTab('llm')">🤖 LLM Health</button>
-                <button class="top-tab-btn" id="topBtnQuotas" onclick="switchTopTab('quotas')">📊 Quotas & Usage</button>
-            </div>
             <div class="top-actions">
                 <div class="conn-pill" id="connBadge">
                     <span class="conn-dot"></span>
@@ -1482,6 +1478,14 @@ function getDashboardHTML(sheetId) {
                     </button>
                 </div>
                 <div class="sidebar-footer">
+                    <div class="sidebar-section-title" style="padding: 0.25rem 0.5rem; margin-bottom: 0.2rem;">System & Resources</div>
+                    <button class="nav-item" id="navBtnLLM" onclick="switchLeftNav('llm')">
+                        <div class="nav-item-left"><span>🤖</span> <span>LLM Health</span></div>
+                        <span class="nav-badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e;">11 Keys</span>
+                    </button>
+                    <button class="nav-item" id="navBtnQuotas" onclick="switchLeftNav('quotas')">
+                        <div class="nav-item-left"><span>📈</span> <span>Quotas & Usage</span></div>
+                    </button>
                     <button class="nav-item" id="navBtnHelp" onclick="switchLeftNav('help')">
                         <div class="nav-item-left"><span>❓</span> <span>Help & Docs</span></div>
                     </button>
@@ -1532,7 +1536,7 @@ function getDashboardHTML(sheetId) {
                         <button class="quick-btn" onclick="switchLeftNav('ideation')">✨ <span>Start AI Ideation</span></button>
                         <button class="quick-btn" onclick="switchLeftNav('ideas')">📂 <span>Review Ideas Backlog</span></button>
                         <button class="quick-btn" onclick="switchLeftNav('pipeline')">🚀 <span>View Active Pipeline</span></button>
-                        <button class="quick-btn" onclick="switchTopTab('llm')">🤖 <span>Check 11 AI Keys</span></button>
+                        <button class="quick-btn" onclick="switchLeftNav('llm')">🤖 <span>Check 11 AI Keys</span></button>
                     </div>
 
                     <div class="glass-card" style="padding: 0; overflow: hidden; margin-top: 1.5rem;">
@@ -1686,9 +1690,16 @@ function getDashboardHTML(sheetId) {
         function switchLeftNav(tabName) {
             document.querySelectorAll(".nav-item").forEach(btn => btn.classList.remove("active"));
             document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
-            const targetBtn = document.getElementById("navBtn" + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+            
+            const lower = (tabName || "").toLowerCase();
+            let suffix = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+            if (lower === "llm") suffix = "LLM";
+            if (lower === "quotas") suffix = "Quotas";
+
+            const targetBtn = document.getElementById("navBtn" + suffix);
             if (targetBtn) targetBtn.classList.add("active");
-            document.getElementById("view" + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add("active");
+            const targetView = document.getElementById("view" + suffix);
+            if (targetView) targetView.classList.add("active");
         }
 
         async function fetchPipelineData() {
