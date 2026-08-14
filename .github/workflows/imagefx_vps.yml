@@ -1,0 +1,35 @@
+name: HistorySnooze ImageFX VPS Runner
+
+on:
+  repository_dispatch:
+    types: [run_imagefx_vps]
+  workflow_dispatch:
+    inputs:
+      character:
+        description: 'Historical Character Name'
+        required: true
+        default: 'Marcus_Aurelius'
+
+jobs:
+  imagefx_vps:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Run Playwright ImageFX VPS Generator
+        run: |
+          CHARACTER="${{ github.event.inputs.character || github.event.client_payload.character }}"
+          echo "Starting ImageFX Generation on VPS for: $CHARACTER"
+          python 00.System/01.Scripts/imagefx_vps_runner.py --character "$CHARACTER" --project_dir "01.Projects/$CHARACTER"
+
+      - name: Upload Keyframes Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: keyframe-images
+          path: 01.Projects/*/02.Media Generation/keyframes/beat_*.jpg

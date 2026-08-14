@@ -1,0 +1,26 @@
+{
+  "part_num": 1,
+  "total_beats": 4,
+  "beats": [
+    {
+      "beat_id": "P01_B01",
+      "image_type": "cover",
+      "prompt": "Iconic portrait of Marcus_Aurelius, cover art, regal medieval posture — late-15th-century illuminated manuscript miniature, tempera and shell-gold on vellum, flat medieval perspective, fine brown-ink outlines, subtle parchment texture, borderless full-bleed edge-to-edge artwork, no frame, no borders, no page margins, 16:9 aspect, ultra-high-resolution (4K)"
+    },
+    {
+      "beat_id": "P01_B02",
+      "image_type": "story",
+      "prompt": "Early life scene of Marcus_Aurelius, quiet castle courtyard, morning light — late-15th-century illuminated manuscript miniature, tempera and shell-gold on vellum, flat medieval perspective, fine brown-ink outlines, subtle parchment texture, borderless full-bleed edge-to-edge artwork, no frame, no borders, no page margins, 16:9 aspect, ultra-high-resolution (4K)"
+    },
+    {
+      "beat_id": "P01_B03",
+      "image_type": "story",
+      "prompt": "Historical setting of Marcus_Aurelius, medieval hall with banners — late-15th-century illuminated manuscript miniature, tempera and shell-gold on vellum, flat medieval perspective, fine brown-ink outlines, subtle parchment texture, borderless full-bleed edge-to-edge artwork, no frame, no borders, no page margins, 16:9 aspect, ultra-high-resolution (4K)"
+    },
+    {
+      "beat_id": "P01_B04",
+      "image_type": "story",
+      "prompt": "Atmospheric journey scene of Marcus_Aurelius, twilight landscape — late-15th-century illuminated manuscript miniature, tempera and shell-gold on vellum, flat medieval perspective, fine brown-ink outlines, subtle parchment texture, borderless full-bleed edge-to-edge artwork, no frame, no borders, no page margins, 16:9 aspect, ultra-high-resolution (4K)"
+    }
+  ]
+}

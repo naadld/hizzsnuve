@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HistorySnooze Control Center Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Header / Navigation -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo-icon">🌙</div>
+                <div class="brand-info">
+                    <h1>HistorySnooze Control Center</h1>
+                    <p class="subtitle">100% Online Automated ASMR History Video Production System</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="connection-badge" id="connBadge">
+                    <span class="status-dot online"></span>
+                    <span id="connText">Connected to Pipeline Sheet</span>
+                </div>
+                <button class="btn btn-primary" id="btnRefresh">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    Refresh Data
+                </button>
+            </div>
+        </header>
+
+        <!-- KPI Metrics Grid -->
+        <section class="kpi-grid">
+            <div class="kpi-card glass">
+                <div class="kpi-icon proposed">💡</div>
+                <div class="kpi-data">
+                    <span class="kpi-value" id="kpiProposed">0</span>
+                    <span class="kpi-label">Proposed Ideas</span>
+                </div>
+            </div>
+
+            <div class="kpi-card glass">
+                <div class="kpi-icon script">📜</div>
+                <div class="kpi-data">
+                    <span class="kpi-value" id="kpiScript">0</span>
+                    <span class="kpi-label">Scripts Completed</span>
+                </div>
+            </div>
+
+            <div class="kpi-card glass">
+                <div class="kpi-icon voice">🎙️</div>
+                <div class="kpi-data">
+                    <span class="kpi-value" id="kpiVoiceover">0</span>
+                    <span class="kpi-label">Voiceover Ready (GK4)</span>
+                </div>
+            </div>
+
+            <div class="kpi-card glass">
+                <div class="kpi-icon ready">🎬</div>
+                <div class="kpi-data">
+                    <span class="kpi-value" id="kpiReady">0</span>
+                    <span class="kpi-label">Production Ready</span>
+                </div>
+            </div>
+
+            <div class="kpi-card glass">
+                <div class="kpi-icon done">🎉</div>
+                <div class="kpi-data">
+                    <span class="kpi-value" id="kpiDone">0</span>
+                    <span class="kpi-label">Master Videos Done</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Controls & Search Toolbar -->
+        <section class="toolbar glass">
+            <div class="search-box">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="searchInput" placeholder="Search character, YouTube title, Idea ID...">
+            </div>
+
+            <div class="filter-group">
+                <button class="filter-btn active" data-status="ALL">All Statuses</button>
+                <button class="filter-btn" data-status="Proposed">Proposed</button>
+                <button class="filter-btn" data-status="Scripting">Scripting</button>
+                <button class="filter-btn" data-status="Voicing">Voicing</button>
+                <button class="filter-btn" data-status="Imaging">Imaging</button>
+                <button class="filter-btn" data-status="Ready">Ready</button>
+                <button class="filter-btn" data-status="Done">Done</button>
+            </div>
+
+            <div class="quick-action-trigger">
+                <button class="btn btn-accent" id="btnNewIdea">
+                    <span>+ Trigger 2-Step Ideation</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Master Pipeline Table -->
+        <section class="table-container glass">
+            <table class="pipeline-table">
+                <thead>
+                    <tr>
+                        <th>Idea ID</th>
+                        <th>Historical Figure</th>
+                        <th>YouTube Title</th>
+                        <th>Status</th>
+                        <th>GDrive Folder</th>
+                        <th>Outline (GDoc)</th>
+                        <th>Script (01.Preprod)</th>
+                        <th>Voiceover (Audio)</th>
+                        <th>Keyframes (Image)</th>
+                        <th>Master Video</th>
+                        <th>Quick Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="pipelineTbody">
+                    <tr>
+                        <td colspan="11" class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Connecting and loading data from Google Sheets Pipeline...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <!-- Modal Dialog for Action Trigger -->
+    <div class="modal-backdrop" id="modalBackdrop">
+        <div class="modal glass">
+            <div class="modal-header">
+                <h3 id="modalTitle">Trigger Production Workflow</h3>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modalStep1">
+                    <label for="modalInputChar">STEP 1: Enter Keyword / Character / Country / Era:</label>
+                    <input type="text" id="modalInputChar" placeholder="e.g. Ancient Rome, Year 1945, Marcus Aurelius...">
+                    
+                    <label for="modalSelectCommand">Select Workflow Command:</label>
+                    <select id="modalSelectCommand">
+                        <option value="/idea">💡 /idea (2-Step AI Ideation Wizard)</option>
+                        <option value="/start">📜 /start (Start Pre-Production: 15 Part Scripts & Beats)</option>
+                        <option value="/mediagen">🎙️ /mediagen (Run 15 OmniVoice TTS Jobs)</option>
+                        <option value="/imagegen">🖼️ /imagegen (Run Playwright ImageFX on VPS)</option>
+                        <option value="/assemble">🎬 /assemble (Render Ken Burns Master Video)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnCancelModal">Cancel</button>
+                <button class="btn btn-primary" id="btnSubmitModal">Submit Trigger</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+name: HistorySnooze Ken Burns Assembly Engine
+
+on:
+  repository_dispatch:
+    types: [run_kenburns_assembly]
+  workflow_dispatch:
+    inputs:
+      character:
+        description: 'Historical Character Name'
+        required: true
+        default: 'Marcus_Aurelius'
+
+jobs:
+  assemble_video:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Run Ken Burns Assembly Engine
+        run: |
+          CHARACTER="${{ github.event.inputs.character || github.event.client_payload.character }}"
+          echo "Starting Ken Burns Video Assembly for: $CHARACTER"
+          python 00.System/01.Scripts/kenburns_assembly.py --project_dir "01.Projects/$CHARACTER" --output_mp4 "01.Projects/$CHARACTER/03.Final Production/Master_${CHARACTER}_Documentary.mp4"
+
+      - name: Upload Final Video Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: master-video
+          path: 01.Projects/*/03.Final Production/*.mp4

@@ -1,0 +1,21 @@
+{
+  "part_num": 15,
+  "total_beats": 3,
+  "beats": [
+    {
+      "beat_id": "P15_B01",
+      "image_type": "story_climax",
+      "prompt": "Final climax scene of Marcus_Aurelius — late-15th-century illuminated manuscript miniature, tempera and shell-gold on vellum, flat medieval perspective, fine brown-ink outlines, subtle parchment texture, borderless full-bleed edge-to-edge artwork, no frame, no borders, no page margins, 16:9 aspect, ultra-high-resolution (4K)"
+    },
+    {
+      "beat_id": "P15_B02",
+      "image_type": "story_resolution",
+      "prompt": "Legacy reflection scene of Marcus_Aurelius — late-15th-century illuminated manuscript miniature, tempera and shell-gold on vellum, flat medieval perspective, fine brown-ink outlines, subtle parchment texture, borderless full-bleed edge-to-edge artwork, no frame, no borders, no page margins, 16:9 aspect, ultra-high-resolution (4K)"
+    },
+    {
+      "beat_id": "P15_B03",
+      "image_type": "summary_variant",
+      "prompt": "Master grand summary portrait variant of Marcus_Aurelius — late-15th-century illuminated manuscript miniature, tempera and shell-gold on vellum, flat medieval perspective, fine brown-ink outlines, subtle parchment texture, borderless full-bleed edge-to-edge artwork, no frame, no borders, no page margins, 16:9 aspect, ultra-high-resolution (4K)"
+    }
+  ]
+}
