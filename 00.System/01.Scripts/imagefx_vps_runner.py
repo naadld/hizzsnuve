@@ -141,21 +141,63 @@ def run_vps_imagefx_generator(character_name, project_dir, cdp_port=9222):
                     else:
                         page.keyboard.press("Enter")
 
+                    # Wait for generation to complete (check for new image card or progress bar disappear)
                     print("  └─ Waiting for generation...")
-                    time.sleep(15)
+                    page.wait_for_selector("img[src*='lh3.googleusercontent.com'], img[src*='googleusercontent']", timeout=30000)
+                    time.sleep(3.0)
 
-                    downloaded_file = get_newest_downloaded_image(start_time)
-                    if downloaded_file:
-                        import shutil
-                        shutil.copy2(downloaded_file, out_path)
-                        validate_image_file(out_path)
-                    else:
-                        img_elem = page.locator("img[src*='lh3.googleusercontent.com'], img[src*='blob:']").first
-                        if img_elem.count() > 0 and img_elem.is_visible():
-                            img_elem.screenshot(path=out_path)
-                            validate_image_file(out_path)
-                        else:
-                            print(f"  ⚠️ No image downloaded or captured for {beat_id}.")
+                    download_success = False
+
+                    # 1. Primary Method: Click on the first generated result card, then click Download button
+                    try:
+                        first_img_card = page.locator("div[role='button']:has(img), img[src*='googleusercontent']").first
+                        if first_img_card.count() > 0:
+                            first_img_card.click(force=True)
+                            time.sleep(1.5)
+
+                            # Find download button in viewer/toolbar
+                            dl_btn = page.locator("button[aria-label*='Download'], button[aria-label*='download'], button[data-tooltip*='Download'], button:has-text('Download')").first
+                            if dl_btn.count() > 0 and dl_btn.is_visible():
+                                with page.expect_download(timeout=15000) as download_info:
+                                    dl_btn.click(force=True)
+                                download = download_info.value
+                                download.save_as(out_path)
+                                if validate_image_file(out_path):
+                                    download_success = True
+                    except Exception as de:
+                        print(f"  ⚠️ Direct download click attempt: {de}")
+
+                    # 2. Secondary Method: Intercept newest file in ~/Downloads
+                    if not download_success:
+                        downloaded_file = get_newest_downloaded_image(start_time)
+                        if downloaded_file:
+                            import shutil
+                            shutil.copy2(downloaded_file, out_path)
+                            if validate_image_file(out_path):
+                                download_success = True
+
+                    # 3. Tertiary Method: Fetch high-res image src directly from DOM (replace dimensions with =s0 for 4K)
+                    if not download_success:
+                        try:
+                            img_elem = page.locator("img[src*='lh3.googleusercontent.com']").first
+                            if img_elem.count() > 0:
+                                src_url = img_elem.get_attribute("src")
+                                if src_url:
+                                    # Request highest available resolution (=s0 or =w3840-h2160)
+                                    import re
+                                    high_res_url = re.sub(r'=w\d+-h\d+.*|=s\d+.*', '=s0', src_url)
+                                    import requests
+                                    resp = requests.get(high_res_url, timeout=15)
+                                    if resp.status_code == 200 and len(resp.content) > 30720:
+                                        with open(out_path, "wb") as f_out:
+                                            f_out.write(resp.content)
+                                        if validate_image_file(out_path):
+                                            download_success = True
+                        except Exception as fe:
+                            print(f"  ⚠️ High-res URL fetch error: {fe}")
+
+                    if not download_success:
+                        print(f"  ❌ Failed to download valid keyframe for {beat_id}.")
 
                 except Exception as ie:
                     print(f"  ⚠️ Playwright interaction error for {beat_id}: {ie}")
