@@ -22,11 +22,17 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install FFmpeg
+      - name: Install FFmpeg & Google API Requirements
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install google-api-python-client google-auth-oauthlib requests
 
       - name: Run Ken Burns Assembly Engine
+        env:
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
         run: |
           CHARACTER="${{ github.event.inputs.character || github.event.client_payload.character }}"
           echo "Starting Ken Burns Video Assembly for: $CHARACTER"
