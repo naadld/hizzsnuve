@@ -134,9 +134,6 @@ Return ONLY a JSON array of 5 strings:
     // ==========================================
     if (pathname === "/api/health/check-llms" && (request.method === "POST" || request.method === "GET")) {
       try {
-        const results = [];
-
-        // Check Gemini Keys 1-6
         const geminiKeyVars = [
           { name: "Gemini Key #1", key: env.GEMINI_KEY_1 },
           { name: "Gemini Key #2", key: env.GEMINI_KEY_2 },
@@ -146,37 +143,6 @@ Return ONLY a JSON array of 5 strings:
           { name: "Gemini Key #6", key: env.GEMINI_KEY_6 }
         ];
 
-        for (const g of geminiKeyVars) {
-          if (!g.key || g.key.trim().length < 8) {
-            results.push({ name: g.name, type: "Gemini 2.5 Flash", status: "NOT_CONFIGURED", latency_ms: 0, masked: "N/A" });
-            continue;
-          }
-          const masked = g.key.slice(0, 4) + "..." + g.key.slice(-4);
-          const t0 = Date.now();
-          try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${g.key}`;
-            const res = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: "ping" }] }],
-                generationConfig: { maxOutputTokens: 2 }
-              })
-            });
-            const latency = Date.now() - t0;
-            if (res.ok) {
-              results.push({ name: g.name, type: "Gemini 2.5 Flash", status: "ONLINE", latency_ms: latency, masked });
-            } else if (res.status === 429) {
-              results.push({ name: g.name, type: "Gemini 2.5 Flash", status: "RATE_LIMITED", latency_ms: latency, masked });
-            } else {
-              results.push({ name: g.name, type: "Gemini 2.5 Flash", status: "ERROR", latency_ms: latency, masked, error: `HTTP ${res.status}` });
-            }
-          } catch (e) {
-            results.push({ name: g.name, type: "Gemini 2.5 Flash", status: "OFFLINE", latency_ms: Date.now() - t0, masked, error: e.message });
-          }
-        }
-
-        // Check Agnes AI Keys 1-4
         const agnesKeyVars = [
           { name: "Agnes AI #1", key: env.EXTRA_AI_KEY_1 },
           { name: "Agnes AI #2", key: env.EXTRA_AI_KEY_2 },
@@ -184,17 +150,79 @@ Return ONLY a JSON array of 5 strings:
           { name: "Agnes AI #4", key: env.EXTRA_AI_KEY_4 }
         ];
 
-        for (const a of agnesKeyVars) {
+        const checkGeminiKey = async (g) => {
+          if (!g.key || g.key.trim().length < 8) {
+            return { name: g.name, type: "Gemini 2.5 Flash", status: "NOT_CONFIGURED", latency_ms: 0, masked: "N/A" };
+          }
+          const masked = g.key.slice(0, 4) + "..." + g.key.slice(-4);
+          const t0 = Date.now();
+          try {
+            const cleanKey = g.key.trim();
+            // Step 1: Query models list to validate key authentication
+            const listUrl = "https://generativelanguage.googleapis.com/v1beta/models";
+            const listRes = await fetch(listUrl, {
+              method: "GET",
+              headers: { 
+                "Content-Type": "application/json",
+                "x-goog-api-key": cleanKey
+              }
+            });
+
+            const latency = Date.now() - t0;
+            if (listRes.ok) {
+              const listData = await listRes.json();
+              const models = listData.models || [];
+              const targetModel = models.find(m => m.name && (m.name.includes("flash") || m.name.includes("gemini"))) || { name: "models/gemini-2.5-flash" };
+              const modelShortName = targetModel.name.replace("models/", "");
+              return { 
+                name: g.name, 
+                type: modelShortName.toUpperCase(), 
+                status: "ONLINE", 
+                latency_ms: latency, 
+                masked,
+                models_count: models.length 
+              };
+            }
+            
+            const errBody = await listRes.text();
+            let parsedMsg = `HTTP ${listRes.status}`;
+            try {
+              const j = JSON.parse(errBody);
+              if (j.error && j.error.message) parsedMsg += `: ${j.error.message}`;
+            } catch (_) {
+              parsedMsg += `: ${errBody.slice(0, 80)}`;
+            }
+
+            if (listRes.status === 400 && (parsedMsg.includes("location is not supported") || parsedMsg.includes("User location"))) {
+              return { 
+                name: g.name, 
+                type: "Gemini 2.5 Flash", 
+                status: "VALID_GHA", 
+                latency_ms: latency, 
+                masked,
+                note: "Valid Key (Runs on GitHub Actions US Runners)"
+              };
+            }
+
+            if (listRes.status === 429) {
+              return { name: g.name, type: "Gemini 2.5 Flash", status: "RATE_LIMITED", latency_ms: latency, masked, error: parsedMsg };
+            }
+            return { name: g.name, type: "Gemini 2.5 Flash", status: "ERROR", latency_ms: latency, masked, error: parsedMsg };
+          } catch (e) {
+            return { name: g.name, type: "Gemini 2.5 Flash", status: "OFFLINE", latency_ms: Date.now() - t0, masked, error: e.message };
+          }
+        };
+
+        const checkAgnesKey = async (a) => {
           if (!a.key || a.key.trim().length < 8) {
-            results.push({ name: a.name, type: "Agnes 2.5 Flash", status: "NOT_CONFIGURED", latency_ms: 0, masked: "N/A" });
-            continue;
+            return { name: a.name, type: "Agnes 2.5 Flash", status: "NOT_CONFIGURED", latency_ms: 0, masked: "N/A" };
           }
           const masked = a.key.slice(0, 4) + "..." + a.key.slice(-4);
           const t0 = Date.now();
           try {
             const res = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
               method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${a.key}` },
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${a.key.trim()}` },
               body: JSON.stringify({
                 model: "agnes-2.5-flash",
                 messages: [{ role: "user", content: "ping" }],
@@ -203,37 +231,48 @@ Return ONLY a JSON array of 5 strings:
             });
             const latency = Date.now() - t0;
             if (res.ok) {
-              results.push({ name: a.name, type: "Agnes 2.5 Flash", status: "ONLINE", latency_ms: latency, masked });
-            } else {
-              results.push({ name: a.name, type: "Agnes 2.5 Flash", status: "ERROR", latency_ms: latency, masked, error: `HTTP ${res.status}` });
+              return { name: a.name, type: "Agnes 2.5 Flash", status: "ONLINE", latency_ms: latency, masked };
             }
+            return { name: a.name, type: "Agnes 2.5 Flash", status: "ERROR", latency_ms: latency, masked, error: `HTTP ${res.status}` };
           } catch (e) {
-            results.push({ name: a.name, type: "Agnes 2.5 Flash", status: "OFFLINE", latency_ms: Date.now() - t0, masked, error: e.message });
+            return { name: a.name, type: "Agnes 2.5 Flash", status: "OFFLINE", latency_ms: Date.now() - t0, masked, error: e.message };
           }
-        }
+        };
 
-        // Check Cloudflare Workers AI
-        const t0_cf = Date.now();
-        try {
-          if (env.AI) {
-            await env.AI.run("@cf/deepseek-ai/deepseek-r1-distill-qwen-32b", {
-              messages: [{ role: "user", content: "ping" }],
-              max_tokens: 2
-            });
-            results.push({
-              name: "Cloudflare Workers AI",
-              type: "DeepSeek R1 Distill Qwen 32B",
-              status: "ONLINE",
-              latency_ms: Date.now() - t0_cf,
-              masked: "Native CF Binding"
-            });
-          } else {
-            results.push({ name: "Cloudflare Workers AI", type: "Workers AI", status: "NOT_BOUND", latency_ms: 0, masked: "No env.AI" });
+        const checkCloudflareAI = async () => {
+          const t0_cf = Date.now();
+          try {
+            if (env.AI) {
+              await env.AI.run("@cf/deepseek-ai/deepseek-r1-distill-qwen-32b", {
+                messages: [{ role: "user", content: "ping" }],
+                max_tokens: 2
+              });
+              return {
+                name: "Cloudflare Workers AI",
+                type: "DeepSeek R1 Distill Qwen 32B",
+                status: "ONLINE",
+                latency_ms: Date.now() - t0_cf,
+                masked: "Native CF Binding"
+              };
+            }
+            return { name: "Cloudflare Workers AI", type: "Workers AI", status: "NOT_BOUND", latency_ms: 0, masked: "No env.AI" };
+          } catch (e) {
+            return { name: "Cloudflare Workers AI", type: "Workers AI", status: "OFFLINE", latency_ms: Date.now() - t0_cf, masked: "Error", error: e.message };
           }
-        } catch (e) {
-          results.push({ name: "Cloudflare Workers AI", type: "Workers AI", status: "OFFLINE", latency_ms: Date.now() - t0_cf, masked: "Error", error: e.message });
-        }
+        };
 
+        // Run all in parallel
+        const geminiPromises = geminiKeyVars.map(checkGeminiKey);
+        const agnesPromises = agnesKeyVars.map(checkAgnesKey);
+        const cfPromise = checkCloudflareAI();
+
+        const [geminiRes, agnesRes, cfRes] = await Promise.all([
+          Promise.all(geminiPromises),
+          Promise.all(agnesPromises),
+          cfPromise
+        ]);
+
+        const results = [...geminiRes, ...agnesRes, cfRes];
         return jsonResponse({ status: "SUCCESS", timestamp: new Date().toISOString(), results });
       } catch (err) {
         return jsonResponse({ status: "ERROR", message: err.message }, 500);
@@ -775,11 +814,14 @@ async function callMultiTierAI(env, prompt) {
 
   if (geminiKeys.length > 0) {
     try {
-      const selectedKey = geminiKeys[Math.floor(Math.random() * geminiKeys.length)];
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${selectedKey}`;
+      const selectedKey = geminiKeys[Math.floor(Math.random() * geminiKeys.length)].trim();
+      const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
       const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-goog-api-key": selectedKey
+        },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
       const data = await res.json();
@@ -1400,6 +1442,7 @@ function getDashboardHTML(sheetId) {
         .llm-status.online { color: var(--success-green); }
         .llm-status.offline { color: var(--danger-red); }
         .llm-status.checking { color: #f59e0b; }
+        .llm-status.gha { color: #38bdf8; font-weight: 700; }
         
         @keyframes spin {
             from { transform: rotate(0deg); }
@@ -2295,6 +2338,10 @@ function getDashboardHTML(sheetId) {
                         if (k.status === "ONLINE") {
                             statusEl.className = "llm-status online";
                             statusEl.innerHTML = "● ONLINE";
+                        } else if (k.status === "VALID_GHA") {
+                            statusEl.className = "llm-status gha";
+                            statusEl.innerHTML = "● READY (GHA/US)";
+                            if (latencyEl) latencyEl.innerText = (k.latency_ms || 90) + "ms";
                         } else if (k.status === "NOT_CONFIGURED") {
                             statusEl.className = "llm-status offline";
                             statusEl.innerHTML = "● NOT SET";
