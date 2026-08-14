@@ -1415,6 +1415,7 @@ function getDashboardHTML(sheetId) {
         .status-voicing, .status-voiceover { background: rgba(56, 189, 248, 0.15); color: var(--primary-blue); border: 1px solid rgba(56, 189, 248, 0.3); }
         .status-ready { background: rgba(16, 185, 129, 0.15); color: var(--success-green); border: 1px solid rgba(16, 185, 129, 0.3); }
         .status-done { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid #10b981; }
+        .status-stopped { background: rgba(239, 68, 68, 0.15); color: var(--danger-red); border: 1px solid rgba(239, 68, 68, 0.3); }
 
         .step-progress-row { display: flex; align-items: center; gap: 6px; }
         .step-node { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color); color: var(--text-muted); }
@@ -2198,7 +2199,7 @@ function getDashboardHTML(sheetId) {
             }
             tbody.innerHTML = items.map(item => {
                 const s = (item.status || "").toLowerCase();
-                const statusClass = s.includes("script") ? "status-scripting" : (s.includes("voice") ? "status-voicing" : (s.includes("ready") ? "status-ready" : "status-proposed"));
+                const statusClass = s.includes("script") ? "status-scripting" : (s.includes("voice") ? "status-voicing" : (s.includes("ready") ? "status-ready" : (s.includes("stop") ? "status-stopped" : "status-proposed")));
                 const isScriptDone = item.status !== "Script" && item.status !== "Proposed";
                 const isAudioDone = item.status === "Ready" || item.status === "Producing";
                 const isImgDone = item.image && item.image.startsWith("http");
@@ -2226,7 +2227,12 @@ function getDashboardHTML(sheetId) {
                             </div>
                         </td>
                         <td>
-                            <button class="btn-action btn-icon" style="padding: 4px 10px; font-size: 0.75rem;" onclick="openModalForChar('\${encodeURIComponent(item.character)}')">⚙️ Trigger</button>
+                            <div style="display:flex; gap: 0.35rem; flex-wrap: wrap;">
+                                <button class="btn-action btn-primary" style="padding: 4px 8px; font-size: 0.72rem;" onclick="restartPipeline('\${encodeURIComponent(item.character)}')">🔄 Restart</button>
+                                <button class="btn-action btn-icon" style="padding: 4px 8px; font-size: 0.72rem; color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);" onclick="stopPipeline('\${encodeURIComponent(item.character)}')">🛑 Stop</button>
+                                <button class="btn-action btn-danger" style="padding: 4px 8px; font-size: 0.72rem;" onclick="deletePipeline('\${encodeURIComponent(item.id)}', '\${encodeURIComponent(item.character)}')">🗑️ Delete</button>
+                                <button class="btn-action btn-icon" style="padding: 4px 8px; font-size: 0.72rem;" onclick="openModalForChar('\${encodeURIComponent(item.character)}')">⚙️ More</button>
+                            </div>
                         </td>
                     </tr>
                 \`;
@@ -2394,9 +2400,70 @@ function getDashboardHTML(sheetId) {
             const char = decodeURIComponent(encodedChar);
             if (!confirm("🗑️ Delete idea for '" + char + "' and remove from Blacklist?")) return;
             const id = decodeURIComponent(encodedId);
-            pipelineData = pipelineData.filter(d => d.id !== id);
+            pipelineData = pipelineData.filter(d => String(d.id) !== String(id) && d.character.toLowerCase() !== char.toLowerCase());
             renderAllViews();
             alert("🗑️ Idea deleted and unblocked from Blacklist!");
+        }
+
+        async function restartPipeline(encodedChar) {
+            const char = decodeURIComponent(encodedChar);
+            if (!confirm("🔄 SMART DELTA RESTART:\\n\\nBạn có muốn khởi động lại quy trình sản xuất cho '" + char + "' không?\\n\\nHệ thống sẽ tự động nhận diện các phần đã hoàn thành (Outline/Script/Audio/Image) và tiếp tục sản xuất các phần còn thiếu mà không tốn công sức làm lại.")) return;
+
+            try {
+                const res = await fetch(window.location.origin, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ command: "/start", character: char })
+                });
+                const data = await res.json();
+                alert(data.message || "🔄 Lệnh Smart Restart đã được gửi đến Edge Gateway!");
+                const item = pipelineData.find(d => d.character.toLowerCase() === char.toLowerCase());
+                if (item) item.status = "Scripting";
+                renderAllViews();
+            } catch (e) {
+                alert("Error sending restart command: " + e.message);
+            }
+        }
+
+        async function stopPipeline(encodedChar) {
+            const char = decodeURIComponent(encodedChar);
+            const warningMsg = "⚠️ CẢNH BÁO DỪNG KHẨN CẤP / EMERGENCY STOP:\\n\\n" +
+                               "Bạn có chắc chắn muốn DỪNG (STOP) dự án '" + char + "' đang chạy không?\\n\\n" +
+                               "• Toàn bộ tiến trình GitHub Actions và Edge Compute sẽ bị hủy ngay lập tức.\\n" +
+                               "• Trạng thái dự án sẽ chuyển thành 'Stopped'.\\n\\n" +
+                               "Nhấn OK để xác nhận Dừng, hoặc Cancel để hủy.";
+            if (!confirm(warningMsg)) return;
+
+            try {
+                const res = await fetch(window.location.origin, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ command: "/cancel", character: char })
+                });
+                const data = await res.json();
+                alert(data.message || "🛑 Dự án '" + char + "' đã được yêu cầu dừng khẩn cấp!");
+                const item = pipelineData.find(d => d.character.toLowerCase() === char.toLowerCase());
+                if (item) item.status = "Stopped";
+                renderAllViews();
+            } catch (e) {
+                alert("Error stopping pipeline: " + e.message);
+            }
+        }
+
+        function deletePipeline(encodedId, encodedChar) {
+            const id = decodeURIComponent(encodedId);
+            const char = decodeURIComponent(encodedChar);
+            const dangerMsg = "🚨 CẢNH BÁO NGUY HIỂM / DANGER DELETE:\\n\\n" +
+                              "Bạn có chắc chắn muốn XÓA VĨNH VIỄN dự án '" + char + "' (ID: " + id + ") khỏi Pipeline không?\\n\\n" +
+                              "• Dự án sẽ bị xóa hoàn toàn khỏi bảng theo dõi.\\n" +
+                              "• Tên nhân vật '" + char + "' sẽ được mở khóa khỏi Blacklist.\\n" +
+                              "• Hành động này KHÔNG THỂ HOÀN TÁC!\\n\\n" +
+                              "Nhấn OK để xóa vĩnh viễn.";
+            if (!confirm(dangerMsg)) return;
+
+            pipelineData = pipelineData.filter(d => String(d.id) !== String(id) && d.character.toLowerCase() !== char.toLowerCase());
+            renderAllViews();
+            alert("🗑️ Dự án '" + char + "' đã được xóa khỏi Pipeline và mở khóa khỏi Blacklist!");
         }
 
         /* LLM HEALTH CHECKER */
